@@ -1,8 +1,8 @@
 # Future directions: what the evidence says
 
-This note is a short research pass on evidence-based approaches to low motivation and task initiation, for the people building Depress-o-buster. For each technique it gives a description with a source, an honest reading of the evidence, the V1 features it maps onto, the seams it could inform, and what to avoid. It informs design and copy. The app is not a medical device and makes no health claims.
+This note is a short research pass on evidence-based approaches to low motivation and task initiation, to inform the design and copy of Depress-o-buster. For each technique it gives a description with a source, an honest reading of the evidence, the V1 features it maps onto, the seams it could inform, and what to avoid. The app is not a medical device and makes no health claims.
 
-Bold marks V1 feature names and planned seams, as named in the product description.
+Bold marks V1 feature names and planned seams from the product description.
 
 ## Contents
 
@@ -43,11 +43,11 @@ Could inform:
 
 The "five-minute rule" is popular advice to commit to a short, bounded stint of an avoided task, because starting is the hard part. A 2025 meta-analysis confirms that interrupted tasks tend to be resumed, but finds no reliable memory advantage for unfinished tasks. See [Ghibellini and Meier (2025), Humanities and Social Sciences Communications](https://doi.org/10.1057/s41599-025-05000-w).
 
-Evidence: anecdotal. No controlled trial of the rule itself was found; the resumption evidence is moderate and not about depression.
+Evidence: anecdotal. No controlled trial of the rule was found; the resumption evidence is moderate and not about depression.
 
 Already in the app:
 
-- **Approach/Rest intervals**, **Presets** and **Low stimulation UI**: the rule made concrete, with one-tap start.
+- **Approach/Rest intervals** and **Presets**: the rule made concrete, with one-tap start.
 - **Task ladders**, **Snooze the approach** and **No-guilt history**: the commitment shrunk to one minute, continuing offered not required, the start as the success unit.
 
 Could inform:
@@ -73,26 +73,26 @@ Could inform:
 
 An implementation intention is a plan of the form "if situation X arises, then I will do Y", made in advance for a goal the person already holds. A concrete cue linked to a small response lets action start with less deliberation. See [Gollwitzer and Sheeran (2006), Advances in Experimental Social Psychology](https://doi.org/10.1016/S0065-2601(06)38002-1).
 
-Evidence: moderate. Strong for goal attainment in general samples, d = .65 (d is a standardised group difference; 0.5 is medium); samples are mostly non-clinical and the outcome is goal attainment, not mood.
+Evidence: moderate. Strong for goal attainment in general samples, d = .65 (d is a standardised group difference; 0.5 is medium); samples are mostly non-clinical and the outcome is attainment, not mood.
 
 Already in the app:
 
 - **Task ladders** and **AI breakdown**: each rung is a concrete "then" response; neither supplies the cue.
-- **Presets**, **Approach/Rest intervals** and **Alarms**: decisions made ahead of time, plus a recurring external cue, a loose mapping since the evidence is on self-formed cues.
+- **Presets**, **Approach/Rest intervals** and **Alarms**: decisions made ahead of time, with the rest-done chime cueing the next approach in a run. A loose mapping, since the evidence is on self-formed cues.
 
 Could inform:
 
-- An optional "when/then" line on a rung or preset.
+- **Task ladders** and **Presets**: an optional "when/then" line on a rung or preset.
 
 ## 5. Opposite action from DBT
 
-Opposite action is a Dialectical Behaviour Therapy (DBT) skill: name the emotion, check whether it fits the facts and helps, and if not, act opposite to the urge; for sadness, the urge is to withdraw. See [Linehan (2015), Guilford Press](https://books.google.com/books?vid=ISBN9781462516995).
+Opposite action is a Dialectical Behaviour Therapy (DBT) skill. Name the emotion, check whether it fits the facts and helps, and if not, act opposite to the urge. For sadness, the urge is to withdraw. See [Linehan (2015), Guilford Press](https://books.google.com/books?vid=ISBN9781462516995).
 
-Evidence: weak. The largest randomised trial is year-long, clinician-led skills training in women with borderline personality disorder ([Linehan et al. (2015), JAMA Psychiatry](https://jamanetwork.com/journals/jamapsychiatry/fullarticle/2205835)). Smaller randomised trials exist elsewhere, including a 24-person, 16-week waiting-list trial in treatment-resistant depression ([Harley et al. (2008), Journal of Nervous and Mental Disease](https://doi.org/10.1097/nmd.0b013e318162aa3f)), so the evidence is preliminary, not absent. Opposite action alone rests on tiny studies such as a five-client pilot ([Rizvi and Linehan (2005), Cognitive and Behavioral Practice](https://doi.org/10.1016/S1077-7229(05)80071-9)); nothing tested app use.
+Evidence: weak. The largest randomised trial is year-long, clinician-led skills training in women with borderline personality disorder ([Linehan et al. (2015), JAMA Psychiatry](https://jamanetwork.com/journals/jamapsychiatry/fullarticle/2205835)). Smaller randomised trials exist elsewhere, including a 24-person, 16-week waiting-list trial (control group waits for the same programme) in treatment-resistant depression ([Harley et al. (2008), Journal of Nervous and Mental Disease](https://doi.org/10.1097/nmd.0b013e318162aa3f)), so the evidence is preliminary, not absent. Opposite action alone rests on tiny studies such as a five-client pilot ([Rizvi and Linehan (2005), Cognitive and Behavioral Practice](https://doi.org/10.1016/S1077-7229(05)80071-9)); nothing tested app use.
 
 Already in the app:
 
-- **Approach/Rest intervals** and **Task ladders**: a time-boxed "get active", graded like DBT's build-mastery steps; fit-the-facts stays the person's call.
+- **Approach/Rest intervals** and **Task ladders**: a time-boxed "get active", graded like DBT's build-mastery steps (its own graded-activity skill); fit-the-facts stays the person's call.
 - **Optional mood tags**: naming the emotion, never interpreted.
 
 Could inform:
@@ -108,7 +108,6 @@ Evidence: moderate. A randomised field experiment showed small gains in gym visi
 Already in the app:
 
 - **Approach/Rest intervals** and **Presets**: a short "should" followed by a long "want", with nothing withheld; the mapping is structural, with no reinforcing effect claimed.
-- **Snooze the approach**: keeps the pairing under the user's control.
 
 Could inform:
 
@@ -116,9 +115,9 @@ Could inform:
 
 ## 7. Body doubling
 
-Body doubling is a community-named practice, reported mostly by neurodivergent people, of starting or working on a task while someone else is present, in person or online. The main peer-reviewed evidence is one 220-person survey. See [Eagle, Baltaxe-Admony and Ringland (2024), ACM Transactions on Accessible Computing](https://doi.org/10.1145/3689648).
+Body doubling is a community-named practice, reported mostly by neurodivergent people, of starting or working on a task while someone else is present, in person or online. See [Eagle, Baltaxe-Admony and Ringland (2024), ACM Transactions on Accessible Computing](https://doi.org/10.1145/3689648).
 
-Evidence: weak. One descriptive survey, no controlled study of body doubling was found, and no depression sample.
+Evidence: weak. One descriptive 220-person survey, no controlled study was found, and no depression sample.
 
 Already in the app:
 
@@ -126,7 +125,7 @@ Already in the app:
 
 Could inform:
 
-- **Body doubling / shared sessions**: a passive presence count ("3 others are in an approach"), shown only during an approach, with no chat or completion status; some respondents found a human double stressful.
+- **Body doubling / shared sessions**: a passive presence count ("3 others are in an approach"), shown only during an approach, with no chat or completion status. Some respondents found a human double stressful.
 - **AI companion**: a "just be here" option that says little.
 
 ## 8. Self-determination theory
@@ -146,7 +145,7 @@ Could inform:
 
 ## 9. Self-compassion after setbacks
 
-Self-compassion means meeting one's own failures with kindness rather than harsh self-criticism. In one prospective study, students who forgave themselves for procrastinating procrastinated less before the next exam. See [Wohl, Pychyl and Bennett (2010), Personality and Individual Differences](https://doi.org/10.1016/j.paid.2010.01.029).
+Self-compassion means meeting one's own failures with kindness rather than harsh self-criticism. In one prospective study (people followed forward in time), students who forgave themselves for procrastinating procrastinated less before the next exam. See [Wohl, Pychyl and Bennett (2010), Personality and Individual Differences](https://doi.org/10.1016/j.paid.2010.01.029).
 
 Evidence: weak. One small undergraduate sample in a single lab, and nothing tested non-judgement built into an interface.
 
@@ -157,17 +156,17 @@ Already in the app:
 
 Could inform:
 
-- Post-abandon flow: straight into rest with a one-line log ("Ended at 1:40. Logged."). A hypothesis.
+- **Approach/Rest intervals** and **No-guilt history**: after an abandoned approach, straight into rest with a one-line log ("Ended at 1:40. Logged."). A hypothesis.
 
 ## 10. Gamification and streaks
 
 Gamification adds points, levels, streaks and leaderboards to non-game apps to encourage repeated use. A field study found that a log showing a broken streak reduces later engagement. See [Silverman and Barasch (2023), Journal of Consumer Research](https://academic.oup.com/jcr/article/49/6/1095/6623414).
 
-Evidence: weak. The broken-streak finding rests on one paper, and nothing was tested with people low in energy.
+Evidence: weak. The broken-streak finding rests on one paper. In it, 69% continued after a broken streak versus 93% with an intact one. Repair only softened that (85%). Nothing was tested with people low in energy.
 
 Already in the app:
 
-- **XP and levels** and **No-guilt history**: a multiplier that never shows a broken state, and silent missed days; 69% continued after a broken streak versus 93% with an intact one, and repair only softened that (85%).
+- **XP and levels** and **No-guilt history**: a multiplier that never shows a broken state, and silent missed days.
 
 Could inform:
 
@@ -186,31 +185,31 @@ Already in the app:
 
 Could inform:
 
-- Store listing and onboarding: one line that the app is a timer and activity tool, not a medical device; the name references depression and deserves review.
+- Store listing and onboarding (copy, not a feature): one line that the app is a timer and activity tool, not a medical device. The name references depression and deserves review.
 
 ## 12. Work-rest intervals and the Pomodoro technique
 
 The Pomodoro Technique divides work into fixed intervals, classically 25 minutes, each followed by a short break; a meta-analysis of breaks under ten minutes finds small self-reported gains and no performance effect. See [Albulescu et al. (2022), PLOS ONE](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0272460), [Biwer et al. (2023), British Journal of Educational Psychology](https://cris.maastrichtuniversity.nl/en/publications/understanding-effort-regulation-comparing-pomodoro-breaks-and-sel) and [Smits, Wenzel and de Bruin (2025), Behavioral Sciences](https://pmc.ncbi.nlm.nih.gov/articles/PMC12292963/).
 
-Evidence: weak. Micro-breaks have support for small self-report gains only; no study tested a short-work, long-rest ratio.
+Evidence: weak. Small self-report gains only; no study tested a short-work, long-rest ratio.
 
 Already in the app:
 
-- **Approach/Rest intervals**, **Alarms** and **Snooze the approach**: the two-timer loop, its ring, and an extension; the 20-30 minute rest sits outside the tested dose.
+- **Approach/Rest intervals**, **Alarms** and **Snooze the approach**: the two-timer loop, its ring, and an extension. Rest can be ended by hand, which two of three trials support. The 10-minute default sits at the edge of the tested range and the 20-30 minute presets fall outside it.
 
 Could inform:
 
-- Self-ended rest with an "I'm ready" button, which two of three trials support.
+- None. The 5-minute preset sits inside the tested range.
 
 Avoid:
 
-- Shipping 25/5 as the default or calling it the "correct" ratio: the one trial using exactly 25/5 (Smits et al.) found no overall difference from self-chosen timing, and the trial favouring fixed breaks (Biwer et al.) used 24/6 and 12/3, so nothing singles out 25/5.
+- Shipping 25/5 as the default or calling it the "correct" ratio. The one 25/5 trial (Smits et al.) found no overall difference from self-chosen timing. The trial favouring fixed breaks (Biwer et al.) used 24/6 and 12/3, so nothing singles out 25/5.
 
 ## 13. Graded exposure and approach behaviour
 
-Graded exposure breaks an avoided situation into a ladder of steps and keeps the person in contact with each, approaching rather than avoiding; current theory holds that strict order matters less than once assumed. See [Craske et al. (2014), Behaviour Research and Therapy](https://pmc.ncbi.nlm.nih.gov/articles/PMC4114726/).
+Graded exposure breaks an avoided situation into a ladder of steps and keeps the person in contact with each, approaching rather than avoiding. Current theory holds that strict order matters less than once assumed. See [Craske et al. (2014), Behaviour Research and Therapy](https://pmc.ncbi.nlm.nih.gov/articles/PMC4114726/).
 
-Evidence: moderate for clinician-delivered exposure in anxiety; the mechanism (fear extinction) is not the app's target, and no study tests a self-guided proximity timer.
+Evidence: moderate for clinician-delivered exposure in anxiety. The mechanism is fear extinction (fear fading through repeated safe contact), which is not the app's target. No study tests a self-guided proximity timer.
 
 Already in the app:
 
@@ -255,7 +254,7 @@ Merged and de-duplicated; numbers are the source sections.
 
 ## What the ladder is, in these terms
 
-In behavioural activation terms, a task ladder is graded task assignment: one avoided activity split into steps ranked by difficulty, aimed at contact rather than completion. The approach interval is the scheduling half, a slot that starts because the plan says so. In Tiny Habits terms, the lowest rungs are the behaviour shrunk to a bad-day size, and the rest-done sound is an anchor for the next one. The exposure literature adds that strict order matters less than once assumed, so any rung can be chosen. None of this has been tested as a self-guided timer, so the ladder counts small approaches; it is not a method with known effects.
+In behavioural activation terms, a task ladder is graded task assignment: one avoided activity split into steps ranked by difficulty, aimed at contact rather than completion. The approach interval is the scheduling half, a slot that starts because the plan says so. In Tiny Habits terms, the lowest rungs are the behaviour shrunk to a bad-day size, and the rest-done sound is a prompt for the next one. The exposure literature adds that strict order matters less than once assumed, so any rung can be chosen. None of this has been tested as a self-guided timer, so the ladder counts small approaches; it is not a method with known effects.
 
 ## Sources
 
@@ -278,7 +277,7 @@ In behavioural activation terms, a task ladder is graded task assignment: one av
 17. Silverman, J., & Barasch, A. (2023). On or Off Track: How (Broken) Streaks Affect Consumer Decisions. Journal of Consumer Research. <https://academic.oup.com/jcr/article/49/6/1095/6623414>
 18. Baumel, A., et al. (2019). Objective User Engagement With Mental Health Apps: Systematic Search and Panel-Based Usage Analysis. Journal of Medical Internet Research. <https://pmc.ncbi.nlm.nih.gov/articles/PMC6785720>
 19. U.S. Food and Drug Administration (2026). General Wellness: Policy for Low Risk Devices. <https://www.fda.gov/regulatory-information/search-fda-guidance-documents/general-wellness-policy-low-risk-devices>
-20. Albulescu, P., et al. (2022). "Give me a break!" A systematic review and meta-analysis on the efficacy of micro-breaks for increasing well-being and performance. PLOS ONE. <https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0272460>
+20. Albulescu, P., et al. (2022). A systematic review and meta-analysis on the efficacy of micro-breaks for increasing well-being and performance. PLOS ONE. <https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0272460>
 21. Biwer, F., et al. (2023). Understanding effort regulation: Comparing 'Pomodoro' breaks and self-regulated breaks. British Journal of Educational Psychology. <https://cris.maastrichtuniversity.nl/en/publications/understanding-effort-regulation-comparing-pomodoro-breaks-and-sel>
 22. Smits, E. J. C., et al. (2025). Investigating the Effectiveness of Self-Regulated, Pomodoro, and Flowtime Break-Taking Techniques Among Students. Behavioral Sciences. <https://pmc.ncbi.nlm.nih.gov/articles/PMC12292963/>
 23. Craske, M. G., et al. (2014). Maximizing exposure therapy: An inhibitory learning approach. Behaviour Research and Therapy. <https://pmc.ncbi.nlm.nih.gov/articles/PMC4114726/>
