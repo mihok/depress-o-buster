@@ -49,3 +49,4 @@ app.*.map.json
 
 # Gradle output under the Android project
 android/build/
+android/.kotlin/
