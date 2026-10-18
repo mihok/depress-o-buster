@@ -40,6 +40,7 @@ Useful commands:
 flutter analyze
 flutter test                       # 123 tests: timer engine, XP rules, levels, ladders, services, repositories, start flow
 flutter build apk --debug          # verified: permissions, receivers, raw chimes and sqlite3 libs land in the APK
+flutter build apk --release        # verified: the chimes survive resource shrinking (res/raw/keep.xml)
 flutter build web                  # verified: compiles (alarms are in-app only on the web)
 flutter build ios --no-codesign    # needs macOS
 ```
