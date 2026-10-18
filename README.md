@@ -16,6 +16,13 @@ is an **approach**: being near the thing, not doing the thing. Over days the rat
 
 This is a timer with a very low floor. It is not a medical device and makes no health claims.
 
+## Install on an Android phone
+
+Every push to `main` builds a signed APK and publishes it as a GitHub Release. On the phone, open
+https://github.com/mihok/depress-o-buster/releases/latest/download/depress-o-buster.apk, open the downloaded
+file, allow installs from the browser if asked, and tap Install. Updates keep your data. Details, including the
+one-time signing-key setup, are in `docs/RELEASING.md`.
+
 ## Setup
 
 Requirements:

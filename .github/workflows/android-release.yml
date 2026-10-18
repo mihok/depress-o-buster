@@ -1,0 +1,129 @@
+# Builds a signed, installable Android APK on every push to main and publishes
+# it as a GitHub Release, so the app can be installed and updated from a phone
+# alone. See docs/RELEASING.md.
+name: Android release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: 3.47.7
+
+jobs:
+  build:
+    name: Test, build and publish the APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Set up release signing
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            MSG="Add the ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD repository secrets"
+            MSG="$MSG (see docs/RELEASING.md), then re-run this workflow. No release was published."
+            echo "::warning title=Release signing is not set up::$MSG"
+            {
+              echo "## Release signing is not set up"
+              echo
+              echo "$MSG"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/keystore"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/keystore/release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=depressobuster"
+          } > android/key.properties
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build release APK
+        run: flutter build apk --release --build-number=${{ github.run_number }}
+
+      - name: Name the APK
+        id: apk
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/^version: *//; s/+.*//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/depress-o-buster-v$VERSION-build${{ github.run_number }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk dist/depress-o-buster.apk
+          ls -la dist
+
+      - name: Check the signer
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
+          "$APKSIGNER" verify --print-certs dist/depress-o-buster.apk | grep -i "Depress-o-buster"
+
+      - name: Keep the APK as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: depress-o-buster-apk-build${{ github.run_number }}
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Publish the release
+        if: steps.signing.outputs.signed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Depress-o-buster v${{ steps.apk.outputs.version }} (build ${{ github.run_number }})
+          files: dist/*.apk
+          fail_on_unmatched_files: true
+          body: |
+            Signed Android build from `${{ github.sha }}`.
+
+            **Install on your phone**: download `depress-o-buster.apk`, open it, and allow installing
+            from this source if asked. Updates install over the previous version and keep your history.
+
+            Always-latest link: https://github.com/${{ github.repository }}/releases/latest/download/depress-o-buster.apk
+
+      - name: Summary
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          {
+            echo "## Published build ${{ github.run_number }}"
+            echo
+            echo "Install from your phone: https://github.com/${{ github.repository }}/releases/latest/download/depress-o-buster.apk"
+          } >> "$GITHUB_STEP_SUMMARY"
