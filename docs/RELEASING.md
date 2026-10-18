@@ -48,6 +48,20 @@ update the installed app: it would have to be uninstalled first, which deletes i
 * The signer is checked with `apksigner` before publishing.
 * `.github/workflows/ci.yml` runs analyze, test and a debug build for pull requests and other branches.
 
+## If a run fails before any step starts
+
+A run that ends after a few seconds with no logs did not get a runner. The reason is in the job's annotation
+(open the run on https://github.com/mihok/depress-o-buster/actions). The one seen on the first run was:
+
+> The job was not started because your account is locked due to a billing issue.
+
+That is GitHub's account billing, nothing in this repository: fix it at https://github.com/settings/billing
+(public repositories do not consume paid minutes, but a billing lock still blocks hosted runners), then open the
+failed run and tap "Re-run all jobs", or push again.
+
+The runner image is pinned to `ubuntu-24.04` rather than `ubuntu-latest` so the preinstalled Android SDK and
+Java do not change under the build when GitHub moves the `latest` label to a new Ubuntu.
+
 ## Rolling the key
 
 Only if the key leaks. Generate a new keystore as above, replace both secrets, and tell everyone who has the app
