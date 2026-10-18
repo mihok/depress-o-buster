@@ -1,0 +1,54 @@
+import 'package:meta/meta.dart';
+
+/// Anything the person might approach: "laundry", "shower", "reply to Sam".
+@immutable
+class Task {
+  const Task({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    this.note,
+    this.archived = false,
+    this.sortOrder = 0,
+  });
+
+  final String id;
+  final String title;
+  final String? note;
+  final DateTime createdAt;
+  final bool archived;
+  final int sortOrder;
+
+  Task copyWith({
+    String? title,
+    String? note,
+    bool clearNote = false,
+    bool? archived,
+    int? sortOrder,
+  }) {
+    return Task(
+      id: id,
+      title: title ?? this.title,
+      note: clearNote ? null : (note ?? this.note),
+      createdAt: createdAt,
+      archived: archived ?? this.archived,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is Task &&
+      other.id == id &&
+      other.title == title &&
+      other.note == note &&
+      other.createdAt == createdAt &&
+      other.archived == archived &&
+      other.sortOrder == sortOrder;
+
+  @override
+  int get hashCode => Object.hash(id, title, note, createdAt, archived, sortOrder);
+
+  @override
+  String toString() => 'Task($id, $title)';
+}
