@@ -61,6 +61,8 @@ void main() {
       expect(ongoing.runId, 'run-1');
       expect(ongoing.phase, Phase.approach);
       expect(ongoing.restEndsAt, t0.add(const Duration(minutes: 35)), reason: 'a lock-screen view can switch to the rest by itself');
+      expect(ongoing.restPhase, Phase.rest);
+      expect(ongoing.pausedAt, isNull);
       expect(single<PlaySound>(tr).kind, SoundKind.start);
       expect(has<PhaseEnded>(tr), isFalse);
     });
@@ -245,8 +247,12 @@ void main() {
       expect(tr.state.pausedRemaining, const Duration(minutes: 3));
       expect(tr.state.remaining(t0.add(const Duration(minutes: 10))), const Duration(minutes: 3));
       expect(has<CancelAlarms>(tr), isTrue);
-      expect(has<HideOngoing>(tr), isTrue);
       expect(has<ScheduleAlarm>(tr), isFalse);
+      final frozen = single<ShowOngoing>(tr);
+      expect(frozen.pausedAt, t0.add(const Duration(minutes: 2)), reason: 'the live countdown freezes instead of vanishing');
+      expect(frozen.endsAt, t0.add(const Duration(minutes: 5)));
+      expect(frozen.restEndsAt, isNull);
+      expect(has<HideOngoing>(tr), isFalse);
     });
 
     test('resume reschedules from now and excludes paused time from actual', () {
@@ -374,6 +380,7 @@ void main() {
       tr = start(tr.state, t0.add(const Duration(minutes: 31)), cfg: cfg, runId: 'run-2');
       expect(alarms(tr).last.phase, Phase.longRest, reason: 'pre-scheduled rest alarm knows it is the long one');
       expect(alarms(tr).last.at, t0.add(const Duration(minutes: 76)));
+      expect(single<ShowOngoing>(tr).restPhase, Phase.longRest, reason: 'the lock screen can label the long rest');
       tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 56))));
       expect(tr.state.phase, Phase.longRest);
       expect(tr.state.planned, const Duration(minutes: 20));

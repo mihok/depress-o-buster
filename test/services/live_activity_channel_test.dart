@@ -23,6 +23,7 @@ void main() {
       title: 'Sit up for 2 minutes',
       endsAt: endsAt,
       restEndsAt: endsAt.add(const Duration(minutes: 10)),
+      restPhase: Phase.longRest,
     );
     expect(ok, isTrue);
     expect(seen!.method, 'show');
@@ -32,6 +33,8 @@ void main() {
     expect(args['title'], 'Sit up for 2 minutes');
     expect(args['endsAtMs'], endsAt.millisecondsSinceEpoch);
     expect(args['restEndsAtMs'], endsAt.millisecondsSinceEpoch + 600000);
+    expect(args['restPhase'], 'longRest');
+    expect(args['pausedAtMs'], isNull);
   });
 
   test('a missing native side is reported as unavailable, never thrown', () async {

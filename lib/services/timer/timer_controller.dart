@@ -212,6 +212,8 @@ class TimerController extends Notifier<TimerState> {
               endsAt: effect.endsAt,
               target: effect.target,
               restEndsAt: effect.restEndsAt,
+              restPhase: effect.restPhase,
+              pausedAt: effect.pausedAt,
             );
           case HideOngoing():
             await _alarms.hideOngoing();

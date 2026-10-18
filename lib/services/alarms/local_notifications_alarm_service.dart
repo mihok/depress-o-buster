@@ -256,6 +256,8 @@ class LocalNotificationsAlarmService implements AlarmService {
     required DateTime endsAt,
     ApproachTarget? target,
     DateTime? restEndsAt,
+    Phase? restPhase,
+    DateTime? pausedAt,
   }) async {
     if (!kIsWeb && Platform.isIOS) {
       await _liveActivity.show(
@@ -264,6 +266,8 @@ class LocalNotificationsAlarmService implements AlarmService {
         title: target == null || target.isEmpty ? phase.label : target.description,
         endsAt: endsAt,
         restEndsAt: restEndsAt,
+        restPhase: restPhase,
+        pausedAt: pausedAt,
       );
       return;
     }
@@ -274,7 +278,10 @@ class LocalNotificationsAlarmService implements AlarmService {
     final title = isApproach
         ? (target == null || target.isEmpty ? 'Approach' : 'Approach: ${target.description}')
         : phase.label;
-    final body = 'Ends at ${DateFormat('HH:mm').format(endsAt.toLocal())}';
+    final paused = pausedAt != null;
+    final body = paused
+        ? 'Paused, ${_short(endsAt.difference(pausedAt))} left'
+        : 'Ends at ${DateFormat('HH:mm').format(endsAt.toLocal())}';
     final msUntilEnd = endsAt.difference(clock.now()).inMilliseconds;
     try {
       await _plugin.show(
@@ -294,13 +301,14 @@ class LocalNotificationsAlarmService implements AlarmService {
             onlyAlertOnce: true,
             playSound: false,
             enableVibration: false,
-            showWhen: true,
-            when: endsAt.millisecondsSinceEpoch,
-            usesChronometer: true,
-            chronometerCountDown: true,
+            // Frozen text while paused; a live chronometer otherwise.
+            showWhen: !paused,
+            when: paused ? null : endsAt.millisecondsSinceEpoch,
+            usesChronometer: !paused,
+            chronometerCountDown: !paused,
             // Removed by the system at the end of the phase, so it never
             // counts into negative time if the app is frozen or killed.
-            timeoutAfter: msUntilEnd < 1000 ? 1000 : msUntilEnd,
+            timeoutAfter: paused ? null : (msUntilEnd < 1000 ? 1000 : msUntilEnd),
             category: AndroidNotificationCategory.progress,
           ),
         ),
@@ -308,6 +316,13 @@ class LocalNotificationsAlarmService implements AlarmService {
     } catch (e) {
       debugPrint('showOngoing failed: $e');
     }
+  }
+
+  static String _short(Duration d) {
+    final total = d.isNegative ? 0 : d.inSeconds;
+    final m = total ~/ 60;
+    final sec = total % 60;
+    return '$m:${sec.toString().padLeft(2, '0')}';
   }
 
   @override

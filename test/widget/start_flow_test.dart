@@ -58,6 +58,8 @@ class _RecordingAlarmService extends NoopAlarmService {
     required DateTime endsAt,
     ApproachTarget? target,
     DateTime? restEndsAt,
+    Phase? restPhase,
+    DateTime? pausedAt,
   }) async => calls.add('ongoing:${phase.name}');
 
   @override

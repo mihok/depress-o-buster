@@ -67,11 +67,13 @@ class TimerEngine {
     ]);
   }
 
-  /// The live countdown for the current phase of a running state.
-  ShowOngoing _ongoingFor(TimerState s) {
+  /// The live countdown for the current phase. While paused the countdown
+  /// is frozen and no following rest is announced.
+  ShowOngoing _ongoingFor(TimerState s, {DateTime? pausedAt}) {
     DateTime? restEndsAt;
-    if (s.phase == Phase.approach && s.config.autoStartRest) {
-      final restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
+    Phase? restPhase;
+    if (pausedAt == null && s.phase == Phase.approach && s.config.autoStartRest) {
+      restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
       restEndsAt = s.phaseEndsAt!.add(s.config.durationFor(restPhase));
     }
     return ShowOngoing(
@@ -80,6 +82,8 @@ class TimerEngine {
       endsAt: s.phaseEndsAt!,
       target: s.target,
       restEndsAt: restEndsAt,
+      restPhase: restPhase,
+      pausedAt: pausedAt,
     );
   }
 
@@ -106,14 +110,13 @@ class TimerEngine {
   TimerTransition _pause(TimerState s, PauseTimer e) {
     if (s.status != TimerStatus.running) return TimerTransition(s, const []);
     final remaining = _clamp(s.phaseEndsAt!.difference(e.now));
-    return TimerTransition(
-      s.copyWith(
-        status: TimerStatus.paused,
-        pausedRemaining: remaining,
-        pausedAt: e.now,
-      ),
-      const [CancelAlarms(), HideOngoing()],
+    final next = s.copyWith(
+      status: TimerStatus.paused,
+      pausedRemaining: remaining,
+      pausedAt: e.now,
     );
+    // The live countdown stays, frozen, so the lock screen does not go blank.
+    return TimerTransition(next, [const CancelAlarms(), _ongoingFor(next, pausedAt: e.now)]);
   }
 
   TimerTransition _resume(TimerState s, ResumeTimer e) {
@@ -580,12 +583,20 @@ final class ShowOngoing extends TimerEffect {
     required this.endsAt,
     this.target,
     this.restEndsAt,
+    this.restPhase,
+    this.pausedAt,
   });
   final String runId;
   final Phase phase;
   final DateTime endsAt;
   final ApproachTarget? target;
   final DateTime? restEndsAt;
+
+  /// Which rest follows (rest or long rest), when [restEndsAt] is set.
+  final Phase? restPhase;
+
+  /// Set while paused: the countdown is frozen at `endsAt - pausedAt`.
+  final DateTime? pausedAt;
 }
 
 final class HideOngoing extends TimerEffect {

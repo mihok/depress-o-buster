@@ -57,7 +57,8 @@ Known limitations:
   countdown on the lock screen and in the Dynamic Island. The app starts and updates it through the
   `app.depressobuster/live_activity` method channel (`ios/Runner/LiveActivityBridge.swift`); the attributes in
   `ios/Shared/TimerActivityAttributes.swift` are compiled into both targets. One activity per run: snooze,
-  pause and the switch to rest update it; stop, reset and the end of the rest end it. The activity is marked
+  resume and the switch to rest update it in place, pause freezes its countdown, and stop, reset and the end of
+  the rest end it. The activity is marked
   stale at the end of the approach and carries the end of the following rest, so the lock screen switches to the
   rest countdown on its own even if the app is suspended at that moment. `NSSupportsLiveActivities` is set in
   the Runner `Info.plist`.

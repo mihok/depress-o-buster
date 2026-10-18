@@ -16,6 +16,10 @@ struct TimerActivityAttributes: ActivityAttributes {
     /// switch to the rest on its own if the app is suspended when the
     /// approach ends (the activity goes stale at `endsAt`).
     var restEndsAt: Date?
+    /// Which rest follows: "rest" or "longRest". Set with `restEndsAt`.
+    var restPhase: String?
+    /// Set while the timer is paused: the countdown freezes at this instant.
+    var pausedAt: Date?
   }
 
   /// The run this activity belongs to; updates target the same activity.

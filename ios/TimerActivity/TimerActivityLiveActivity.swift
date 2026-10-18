@@ -17,13 +17,24 @@ enum Palette {
 struct PhaseView {
   let context: ActivityViewContext<TimerActivityAttributes>
 
+  var isPaused: Bool { context.state.pausedAt != nil }
+
   var showingRest: Bool {
-    context.state.phase != "approach" || (context.isStale && context.state.restEndsAt != nil)
+    context.state.phase != "approach"
+      || (!isPaused && context.isStale && context.state.restEndsAt != nil)
+  }
+
+  /// The phase being shown: the following rest once an approach went stale.
+  var shownPhase: String {
+    if context.state.phase == "approach" && showingRest {
+      return context.state.restPhase ?? "rest"
+    }
+    return context.state.phase
   }
 
   var phaseLabel: String {
-    if !showingRest { return "Approach" }
-    return context.state.phase == "longRest" ? "Long rest" : "Rest"
+    let label = showingRest ? (shownPhase == "longRest" ? "Long rest" : "Rest") : "Approach"
+    return isPaused ? "\(label), paused" : label
   }
 
   var endsAt: Date {
@@ -39,11 +50,12 @@ struct PhaseView {
 
   var title: String { context.state.title }
 
-  /// A system-rendered countdown; it keeps ticking without updates.
+  /// A system-rendered countdown; it keeps ticking without updates, and
+  /// freezes at the paused instant while the timer is paused.
   var countdown: Text {
     let end = endsAt
-    let start = min(Date.now, end)
-    return Text(timerInterval: start...end, countsDown: true)
+    let start = min(context.state.pausedAt ?? Date.now, end)
+    return Text(timerInterval: start...end, pauseTime: context.state.pausedAt, countsDown: true)
   }
 }
 

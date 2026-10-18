@@ -32,6 +32,8 @@ class LiveActivityChannel {
     required String title,
     required DateTime endsAt,
     DateTime? restEndsAt,
+    Phase? restPhase,
+    DateTime? pausedAt,
   }) async {
     try {
       return await _channel.invokeMethod<bool>('show', <String, Object?>{
@@ -40,6 +42,8 @@ class LiveActivityChannel {
             'title': title,
             'endsAtMs': endsAt.toUtc().millisecondsSinceEpoch,
             'restEndsAtMs': restEndsAt?.toUtc().millisecondsSinceEpoch,
+            'restPhase': restPhase?.name,
+            'pausedAtMs': pausedAt?.toUtc().millisecondsSinceEpoch,
           }) ??
           false;
     } on MissingPluginException {
