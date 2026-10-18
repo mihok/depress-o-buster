@@ -1,4 +1,5 @@
 import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/db/database.dart';
@@ -110,6 +111,7 @@ final xpServiceProvider = Provider<XpService>(
   (ref) => XpService(
     sessions: ref.watch(sessionRepositoryProvider),
     progress: ref.watch(progressRepositoryProvider),
+    tasks: ref.watch(taskRepositoryProvider),
   ),
 );
 
@@ -122,7 +124,11 @@ final claudeBreakdownProvider = Provider<TaskBreakdownService>((ref) {
   final store = ref.watch(settingsServiceProvider);
   return ClaudeTaskBreakdownService(
     apiKeyProvider: store.apiKey,
-    config: BreakdownConfig.defaults.copyWith(model: settings),
+    config: BreakdownConfig.defaults.copyWith(
+      model: settings,
+      // Browsers need an explicit opt-in header for direct API calls.
+      directBrowserAccess: kIsWeb,
+    ),
   );
 });
 
@@ -188,4 +194,9 @@ final progressProvider = StreamProvider<ProgressSnapshot>(
 
 final recentSessionsProvider = StreamProvider<List<Session>>(
   (ref) => ref.watch(sessionRepositoryProvider).watchRecent(),
+);
+
+/// Every interval, for the History screen. Quiet days are simply absent.
+final allSessionsProvider = StreamProvider<List<Session>>(
+  (ref) => ref.watch(sessionRepositoryProvider).watchAll(),
 );

@@ -4,10 +4,12 @@ How the "phase over" alarm is delivered, what it needs, and what can still go wr
 
 ## The approach in one paragraph
 
-When a phase starts, the app schedules one local notification for the exact instant the phase ends and keeps the
-remaining time as `phaseEndsAt - now`. The OS fires the notification with its own sound and vibration whether the
-app is in the foreground, in the background, or not running at all. When the app comes back it catches up with a
-single tick, logs the phase, and continues. The timer never depends on the app process staying alive.
+When an approach starts, the app schedules two local notifications at once: one for the instant the approach
+ends and one for the instant the rest that follows it ends. The remaining time is always `phaseEndsAt - now`.
+The OS fires each notification with its own sound and vibration whether the app is in the foreground, in the
+background, suspended, or not running at all; the rest-end alarm does not need the app to be awake at the moment
+the approach ends. Snoozing or pausing moves both alarms. When the app comes back it catches up with a single
+tick, logs the phases that ended, and continues. The timer never depends on the app process staying alive.
 
 ## Android
 
@@ -17,11 +19,17 @@ single tick, logs the phase, and continues. The timer never depends on the app p
   `USE_EXACT_ALARM` (auto-granted to timer apps on Android 13+), `SCHEDULE_EXACT_ALARM` (fallback, grantable from
   Settings), `RECEIVE_BOOT_COMPLETED` (re-registers pending alarms after a reboot), `VIBRATE`.
 * Receivers: `ScheduledNotificationReceiver` and `ScheduledNotificationBootReceiver` are declared for the plugin.
-* Channels: `approach_done` and `rest_done` at max importance with their own raw sound and alarm audio
-  attributes, so the chime plays over the alarm stream and respects the alarm volume; `ongoing_timer` at low
-  importance, silent, for the live countdown.
+* Channels: on Android 8+ sound and vibration belong to the channel, not the notification, so there is one
+  channel per phase and per combination of the Chimes and Vibration switches (`approach_done`,
+  `approach_done_silent`, `approach_done_novibe`, `approach_done_silent_novibe`, and the same for `rest_done`),
+  all at max importance with alarm audio attributes so the chime plays over the alarm stream and respects the
+  alarm volume. `ongoing_timer` is low importance and silent, for the live countdown.
 * Live countdown: an ongoing notification with `usesChronometer` and `chronometerCountDown` counts down to the
-  end of the phase in the shade. No foreground service is needed for this.
+  end of the phase in the shade, with `timeoutAfter` set to the end of the phase so the system removes it on its
+  own if the app is frozen or killed. No foreground service is needed for this.
+* Release builds: `res/raw/keep.xml` stops the resource shrinker from removing the chimes, which are only
+  referenced by name from Dart. The release APK was inspected to confirm both files are present.
+* `INTERNET` is declared for the optional Claude breakdown call only; nothing else uses the network.
 * Desugaring: `isCoreLibraryDesugaringEnabled = true` plus `desugar_jdk_libs` in `android/app/build.gradle.kts`
   (required by the plugin for scheduled notifications).
 
@@ -61,18 +69,16 @@ Known limitations:
 
 Best effort through the same plugin. Sounds are not bundled in the macOS target yet, so the default sound plays.
 
-## Linux
+## Linux, Windows and web
 
-Notifications are shown through the desktop notification service with critical urgency; no sound is attached.
-
-## Windows and web
-
-`NoopAlarmService`: no scheduled notifications. The in-app chime plays while the window or tab is open.
+No scheduled notifications (the plugin cannot schedule on Linux, and web and Windows use `NoopAlarmService`).
+The in-app chime and haptic play while the window or tab is open; the app knows alarms are unavailable there,
+so it never suppresses the in-app chime in favour of an OS alarm.
 
 ## Checking it works
 
-1. Start a 30-second approach, lock the phone before it ends. Expect a chime and a notification at 0:00, then the
-   rest to be running when you unlock.
+1. Start a 30-second approach with a 1-minute rest, lock the phone before it ends and keep it locked. Expect the
+   approach chime at 0:30 and the rest chime a minute later, without touching the phone.
 2. Start an approach, swipe the app away, wait past the end. Expect the notification; open the app and expect the
    rest already in progress with the right remaining time.
 3. Android: Settings > Alarms shows "Allowed" for both notifications and exact alarms. If exact alarms show

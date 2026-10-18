@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/repositories/progress_repository.dart';
 import '../../data/repositories/session_repository.dart';
+import '../../data/repositories/task_repository.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../domain/xp/levels.dart';
@@ -40,13 +41,15 @@ class XpService {
   XpService({
     required SessionRepository sessions,
     required ProgressRepository progress,
+    required TaskRepository tasks,
     String Function()? idFactory,
-  }) : this._(sessions, progress, idFactory ?? const Uuid().v4);
+  }) : this._(sessions, progress, tasks, idFactory ?? const Uuid().v4);
 
-  XpService._(this._sessions, this._progress, this._newId);
+  XpService._(this._sessions, this._progress, this._tasks, this._newId);
 
   final SessionRepository _sessions;
   final ProgressRepository _progress;
+  final TaskRepository _tasks;
   final String Function() _newId;
 
   Future<LoggedInterval> logPhase(PhaseEnded ended, {String? moodBefore}) async {
@@ -59,12 +62,21 @@ class XpService {
         : XpRules.daysBetween(progress.lastActiveDay!, today);
     final firstToday = counts && (daysSince == null || daysSince > 0);
 
+    // Rung history is compared on the task's current ladder, by rung id, so
+    // editing or replacing a ladder cannot hand out or withhold bonuses.
     int? previousMax;
     int? previousRung;
     final taskId = ended.target?.taskId;
     if (ended.phase == Phase.approach && taskId != null) {
-      previousMax = await _sessions.maxRungOnTask(taskId);
-      previousRung = (await _sessions.lastApproachOnTask(taskId))?.rungPosition;
+      final ladder = await _tasks.ladder(taskId);
+      for (final past in await _sessions.approachesForTask(taskId)) {
+        final resolved = SessionRepository.resolveRung(past, ladder);
+        if (resolved == null) continue;
+        previousRung = resolved.position;
+        if (previousMax == null || resolved.position > previousMax) {
+          previousMax = resolved.position;
+        }
+      }
     }
 
     final consistency = counts
@@ -96,6 +108,7 @@ class XpService {
       runId: ended.runId,
       taskId: taskId,
       taskTitle: ended.target?.taskTitle,
+      rungId: ended.target?.rungId,
       rungPosition: ended.target?.rungPosition,
       rungText: ended.target?.rungText,
       phase: ended.phase,

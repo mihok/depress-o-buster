@@ -20,6 +20,12 @@ class SessionRepository {
     return row == null ? null : sessionFromRow(row);
   }
 
+  /// Every logged interval, newest first. The History screen uses this.
+  Stream<List<Session>> watchAll() =>
+      (_db.select(_db.sessions)..orderBy([(s) => OrderingTerm.desc(s.endedAt)]))
+          .watch()
+          .map((rows) => rows.map(sessionFromRow).toList());
+
   Stream<List<Session>> watchRecent({int limit = 300}) =>
       (_db.select(_db.sessions)
             ..orderBy([(s) => OrderingTerm.desc(s.endedAt)])
@@ -53,8 +59,10 @@ class SessionRepository {
 
   /// Completed or snoozed intervals that ended on [day] (local).
   Future<int> countCompletedOn(DateTime day) async {
+    // Calendar arithmetic: DateTime normalises day + 1 across DST changes,
+    // where Duration arithmetic would land an hour off local midnight.
     final start = DateTime(day.year, day.month, day.day);
-    final end = start.add(const Duration(days: 1));
+    final end = DateTime(day.year, day.month, day.day + 1);
     final rows = await between(start, end);
     return rows.where((s) => s.outcome != SessionOutcome.abandoned).length;
   }
@@ -115,10 +123,10 @@ class SessionRepository {
   /// oldest first. Days with nothing are present with 0.
   Future<List<DayCount>> approachesPerDay({int days = 14, DateTime? now}) async {
     final today = _dateOnly(now ?? clock.now());
-    final start = today.subtract(Duration(days: days - 1));
-    final rows = await between(start, today.add(const Duration(days: 1)));
+    final start = DateTime(today.year, today.month, today.day - (days - 1));
+    final rows = await between(start, DateTime(today.year, today.month, today.day + 1));
     final counts = <DateTime, int>{
-      for (var i = 0; i < days; i++) start.add(Duration(days: i)): 0,
+      for (var i = 0; i < days; i++) DateTime(start.year, start.month, start.day + i): 0,
     };
     for (final s in rows) {
       if (!s.isApproach) continue;
@@ -139,8 +147,14 @@ class SessionRepository {
     return rows.map(sessionFromRow).toList();
   }
 
-  /// Best rung per task across all approaches, keyed by task id.
-  Future<Map<String, RungProgress>> rungProgressByTask() async {
+  /// Best rung per task across all approaches, keyed by task id, measured
+  /// against the task's *current* ladder ([ladders], keyed by task id). A
+  /// session's rung is located by id; rungs that no longer exist are skipped,
+  /// and sessions without a rung id (older rows) use their stored position
+  /// clamped to the ladder.
+  Future<Map<String, RungProgress>> rungProgressByTask({
+    Map<String, List<LadderStep>> ladders = const {},
+  }) async {
     final rows = await (_db.select(_db.sessions)
           ..where(
             (s) => s.phase.equals(Phase.approach.storageKey) & s.rungPosition.isNotNull(),
@@ -150,24 +164,51 @@ class SessionRepository {
     final result = <String, RungProgress>{};
     for (final r in rows) {
       final id = r.taskId;
-      if (id == null || r.rungPosition == null) continue;
+      if (id == null) continue;
+      final session = sessionFromRow(r);
+      final resolved = resolveRung(session, ladders[id]);
+      if (resolved == null) continue;
       final prev = result[id];
-      final best = prev == null || r.rungPosition! > prev.bestRung
-          ? r.rungPosition!
-          : prev.bestRung;
+      final best = prev == null || resolved.position > prev.bestRung ? resolved : null;
       result[id] = RungProgress(
         taskId: id,
         taskTitle: r.taskTitle ?? prev?.taskTitle ?? '',
-        bestRung: best,
-        bestRungText: best == r.rungPosition ? r.rungText ?? '' : prev!.bestRungText,
-        latestRung: r.rungPosition!,
+        bestRung: best?.position ?? prev!.bestRung,
+        bestRungText: best?.text ?? prev!.bestRungText,
+        latestRung: resolved.position,
         attempts: (prev?.attempts ?? 0) + 1,
       );
     }
     return result;
   }
 
+  /// Where a past session's rung sits on the current [ladder]. Null when the
+  /// rung is gone (or the ladder is unknown and the session has no position).
+  static ResolvedRung? resolveRung(Session session, List<LadderStep>? ladder) {
+    if (ladder == null) {
+      return session.rungPosition == null
+          ? null
+          : ResolvedRung(session.rungPosition!, session.rungText ?? '');
+    }
+    if (session.rungId != null) {
+      for (final step in ladder) {
+        if (step.id == session.rungId) return ResolvedRung(step.position, step.text);
+      }
+      return null;
+    }
+    final stored = session.rungPosition;
+    if (stored == null || ladder.isEmpty) return null;
+    final clamped = stored.clamp(0, ladder.length - 1);
+    return ResolvedRung(clamped, ladder[clamped].text);
+  }
+
   static DateTime _dateOnly(DateTime t) => DateTime(t.year, t.month, t.day);
+}
+
+class ResolvedRung {
+  const ResolvedRung(this.position, this.text);
+  final int position;
+  final String text;
 }
 
 class DayCount {

@@ -44,7 +44,10 @@ class _StartViewState extends ConsumerState<StartView> {
         : ref.watch(ladderProvider(sitUpTask.id)).value ?? const <LadderStep>[];
     LadderStep? sitUpRung;
     for (final s in sitUpLadder) {
-      if (s.text.toLowerCase().contains('sit up for 2')) sitUpRung = s;
+      if (s.text.trim().toLowerCase() == 'sit up for 2 minutes') {
+        sitUpRung = s;
+        break;
+      }
     }
     Preset? sitUpPreset;
     for (final p in presets) {
@@ -84,6 +87,7 @@ class _StartViewState extends ConsumerState<StartView> {
               target: ApproachTarget(
                 taskId: sitUpTask?.id,
                 taskTitle: 'Just sit up',
+                rungId: sitUpRung?.id,
                 rungPosition: sitUpRung?.position,
                 rungText: sitUpRung?.text ?? 'Sit up for 2 minutes',
               ),
@@ -125,6 +129,7 @@ class _StartViewState extends ConsumerState<StartView> {
       target: ApproachTarget(
         taskId: choice.task.id,
         taskTitle: choice.task.title,
+        rungId: choice.step.id,
         rungPosition: choice.step.position,
         rungText: choice.step.text,
       ),

@@ -22,9 +22,19 @@ import '../xp/xp_service.dart';
 class TimerController extends Notifier<TimerState> {
   static const TimerEngine engine = TimerEngine();
 
+  /// Taps on the phase controls are ignored this soon after a phase or
+  /// status change, so a double tap on "Done early" cannot also end the rest
+  /// that has just replaced it on screen.
+  static const Duration settleWindow = Duration(milliseconds: 700);
+
   Timer? _ticker;
   String? _moodBefore;
   bool _wakelockOn = false;
+  DateTime? _lastTransitionAt;
+
+  /// Side effects run strictly in dispatch order, one batch after another,
+  /// so a later cancel can never be overtaken by an earlier schedule.
+  Future<void> _effectChain = Future<void>.value();
 
   @override
   TimerState build() {
@@ -32,6 +42,7 @@ class TimerController extends Notifier<TimerState> {
       _ticker?.cancel();
       _ticker = null;
     });
+    ref.listen(settingsProvider.select((s) => s.keepScreenOn), (_, _) => _syncWakelock());
     final settings = ref.read(settingsProvider);
     return TimerState.idle(settings.timerConfig);
   }
@@ -42,22 +53,30 @@ class TimerController extends Notifier<TimerState> {
   SettingsService get _store => ref.read(settingsServiceProvider);
   AppSettings get _settings => ref.read(settingsProvider);
 
-  /// One tap. Requests notification permission the first time only.
+  /// One tap. The system notification prompt is shown on the very first
+  /// start only; because effects are serialised, the first alarm is
+  /// scheduled after the answer, and a refusal just leaves a calm hint.
   Future<void> start({
     TimerConfig? config,
     ApproachTarget? target,
     String? moodBefore,
     Phase phase = Phase.approach,
+    String? runId,
   }) async {
     if (state.isActive) return;
     _moodBefore = moodBefore;
-    if (_alarms.isSupported && !_alarms.capabilities.notificationsGranted) {
-      await _alarms.ensurePermissions();
+    if (_alarms.isSupported && !_settings.notificationPermissionAsked) {
+      _enqueue(() => _alarms.ensurePermissions());
+      unawaited(
+        ref
+            .read(settingsProvider.notifier)
+            .update((s) => s.copyWith(notificationPermissionAsked: true)),
+      );
     }
     _dispatch(
       StartTimer(
         clock.now(),
-        runId: const Uuid().v4(),
+        runId: runId ?? const Uuid().v4(),
         phase: phase,
         target: target,
         config: config ?? _settings.timerConfig,
@@ -65,15 +84,33 @@ class TimerController extends Notifier<TimerState> {
     );
   }
 
+  /// With "start rest automatically" off: begin the rest that belongs to the
+  /// approach that just finished (same run, same target, long rest honoured).
+  Future<void> startRest() => start(
+    phase: Phase.rest,
+    config: state.config,
+    target: state.target,
+    runId: state.runId.isEmpty ? null : state.runId,
+  );
+
   void pause() => _dispatch(PauseTimer(clock.now()));
 
   void resume() => _dispatch(ResumeTimer(clock.now()));
 
   void snooze({Duration? by}) => _dispatch(SnoozeApproach(clock.now(), by: by));
 
-  void finishEarly() => _dispatch(FinishEarly(clock.now()));
+  bool get _settling =>
+      _lastTransitionAt != null && clock.now().difference(_lastTransitionAt!) < settleWindow;
 
-  void abandon() => _dispatch(AbandonTimer(clock.now()));
+  void finishEarly() {
+    if (_settling) return;
+    _dispatch(FinishEarly(clock.now()));
+  }
+
+  void abandon() {
+    if (_settling) return;
+    _dispatch(AbandonTimer(clock.now()));
+  }
 
   void reset() => _dispatch(ResetTimer(clock.now()));
 
@@ -108,11 +145,19 @@ class TimerController extends Notifier<TimerState> {
   void _dispatch(TimerEvent event) {
     final tr = engine.reduce(state, event);
     if (identical(tr.state, state) && tr.effects.isEmpty) return;
+    final transitioned = tr.state.status != state.status || tr.state.phase != state.phase;
     state = tr.state;
+    if (transitioned) _lastTransitionAt = clock.now();
     _syncTicker();
     _syncWakelock();
     unawaited(_persist());
-    unawaited(_runEffects(tr.effects));
+    _enqueue(() => _runEffects(tr.effects));
+  }
+
+  void _enqueue(Future<void> Function() work) {
+    _effectChain = _effectChain.then((_) => work()).catchError((Object e, StackTrace st) {
+      debugPrint('Timer effect batch failed: $e\n$st');
+    });
   }
 
   void _syncTicker() {

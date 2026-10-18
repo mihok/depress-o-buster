@@ -144,3 +144,42 @@ therefore open the database with `closeStreamsSynchronously: true`, run verifica
 `docs/FUTURE_DIRECTIONS.md` was produced by a research pass with one agent per technique, an adversarial
 source check per technique (every URL fetched), a draft, a critic, and a condensing pass that re-checked the
 links. It informs design only; nothing in it is a product claim.
+
+## 20. The rest alarm is scheduled together with the approach alarm
+
+An adversarial review caught that the rest alarm was only scheduled when the approach ended inside the Dart
+isolate, which never happens with the phone locked on iOS and may not on Android. The engine now emits both
+alarms when an approach starts (and again on snooze and resume); the alarm ids are distinct, a cancel clears both,
+and re-scheduling the same id when the approach actually ends is harmless. Rest is sacred; its end must be heard.
+
+## 21. One notification channel per sound/vibration combination
+
+On Android 8+ a channel owns its sound and vibration and ignores per-notification overrides, so the Chimes and
+Vibration switches would have done nothing for OS alarms. Each phase has four channels and the alarm is posted to
+the one matching the switches.
+
+## 22. Rungs are identified by id, not position
+
+Sessions store `rungId` (schema version 2, migration adds the column). Rung bonuses and the "highest rung so far"
+view locate a past session's rung on the task's current ladder by id, skip rungs that no longer exist, and clamp
+older rows that only have a position. Editing, inserting or replacing a ladder can no longer hand out or withhold
+bonuses by accident.
+
+## 23. Effects run in order, and phase controls settle for 700 ms
+
+Side effects of consecutive timer events used to run as overlapping async loops; they are now chained in
+dispatch order, so a later cancel cannot be overtaken by an earlier schedule and two sessions cannot be logged at
+once. The controller also ignores "done early" and "stop" for 700 ms after a phase or status change, so the
+second tap of a double tap on "Done early" cannot land on "End rest early" and end the rest at zero seconds.
+
+## 24. Small things the review changed
+
+Seeding runs once, by marker, so deleting every starter task or preset does not bring them back. The notification
+permission is requested once, on the first start, and effects are serialised behind it so the first alarm is
+scheduled after the answer. Release builds keep the raw chimes (`keep.xml`) and the main manifest declares
+`INTERNET` for the Claude call. Linux is treated as "no scheduled alarms" so the in-app chime plays there. The
+History screen is uncapped; the Progress "Recent" list keeps a limit. `lastActiveDay` is read back in UTC so zones
+at UTC+12 and beyond do not lose their daily bonus. Per-day counts use calendar arithmetic, which is DST-safe. The
+breakdown sheet gives new rungs real ids, never re-adds a rung the ladder already has, makes "Replace" the primary
+action for a task-level result, and cannot be applied twice. On the web the Claude call sends the
+`anthropic-dangerous-direct-browser-access` header.

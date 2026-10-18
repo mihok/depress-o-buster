@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
@@ -40,9 +41,10 @@ class LocalNotificationsAlarmService implements AlarmService {
   static const String payloadRest = 'phase:rest';
   static const String payloadOngoing = 'ongoing';
 
+  /// Linux is left out on purpose: the plugin cannot schedule there, so the
+  /// in-app chime has to carry the alarm (see docs/PLATFORM_ALARMS.md).
   @override
-  bool get isSupported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isLinux);
+  bool get isSupported => !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
   @override
   AlarmCapabilities get capabilities => _caps;
@@ -63,9 +65,8 @@ class LocalNotificationsAlarmService implements AlarmService {
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
-    const linux = LinuxInitializationSettings(defaultActionName: 'Open');
     await _plugin.initialize(
-      settings: const InitializationSettings(android: android, iOS: darwin, macOS: darwin, linux: linux),
+      settings: const InitializationSettings(android: android, iOS: darwin, macOS: darwin),
       onDidReceiveNotificationResponse: (response) => _taps.add(response.payload),
     );
     await _createChannels();
@@ -73,29 +74,49 @@ class LocalNotificationsAlarmService implements AlarmService {
     await ensurePermissions(request: false);
   }
 
+  /// Channel id for a phase and the two user switches. On Android 8+ sound
+  /// and vibration are properties of the channel, not of the notification, so
+  /// every combination the settings allow is its own channel.
+  static String channelIdFor({required bool approach, required bool sound, required bool vibrate}) {
+    final base = approach ? approachChannelId : restChannelId;
+    if (sound && vibrate) return base;
+    if (!sound && vibrate) return '${base}_silent';
+    if (sound && !vibrate) return '${base}_novibe';
+    return '${base}_silent_novibe';
+  }
+
   Future<void> _createChannels() async {
     final android = _android;
     if (android == null) return;
-    await android.createNotificationChannel(
-      const AndroidNotificationChannel(
-        approachChannelId,
-        'Approach finished',
-        description: 'Plays when an approach interval ends.',
-        importance: Importance.max,
-        sound: RawResourceAndroidNotificationSound('approach_done'),
-        audioAttributesUsage: AudioAttributesUsage.alarm,
-      ),
-    );
-    await android.createNotificationChannel(
-      const AndroidNotificationChannel(
-        restChannelId,
-        'Rest finished',
-        description: 'Plays when a rest interval ends.',
-        importance: Importance.max,
-        sound: RawResourceAndroidNotificationSound('rest_done'),
-        audioAttributesUsage: AudioAttributesUsage.alarm,
-      ),
-    );
+    for (final approach in [true, false]) {
+      final name = approach ? 'Approach finished' : 'Rest finished';
+      final description = approach
+          ? 'Plays when an approach interval ends.'
+          : 'Plays when a rest interval ends.';
+      final soundName = approach ? 'approach_done' : 'rest_done';
+      for (final sound in [true, false]) {
+        for (final vibrate in [true, false]) {
+          final suffix = switch ((sound, vibrate)) {
+            (true, true) => '',
+            (false, true) => ' (silent)',
+            (true, false) => ' (no vibration)',
+            (false, false) => ' (silent, no vibration)',
+          };
+          await android.createNotificationChannel(
+            AndroidNotificationChannel(
+              channelIdFor(approach: approach, sound: sound, vibrate: vibrate),
+              '$name$suffix',
+              description: description,
+              importance: Importance.max,
+              playSound: sound,
+              sound: sound ? RawResourceAndroidNotificationSound(soundName) : null,
+              enableVibration: vibrate,
+              audioAttributesUsage: AudioAttributesUsage.alarm,
+            ),
+          );
+        }
+      }
+    }
     await android.createNotificationChannel(
       const AndroidNotificationChannel(
         ongoingChannelId,
@@ -139,7 +160,7 @@ class LocalNotificationsAlarmService implements AlarmService {
         }
         _caps = AlarmCapabilities(notificationsGranted: granted, exactAlarmsAllowed: true);
       } else {
-        _caps = const AlarmCapabilities(notificationsGranted: true, exactAlarmsAllowed: true);
+        _caps = AlarmCapabilities.unsupported;
       }
     } catch (e, st) {
       debugPrint('ensurePermissions failed: $e\n$st');
@@ -164,7 +185,7 @@ class LocalNotificationsAlarmService implements AlarmService {
     if (!isSupported) return;
     final isApproach = phase == Phase.approach;
     final id = isApproach ? approachAlarmId : restAlarmId;
-    final channelId = isApproach ? approachChannelId : restChannelId;
+    final channelId = channelIdFor(approach: isApproach, sound: sound, vibrate: vibrate);
     final soundName = isApproach ? 'approach_done' : 'rest_done';
     final title = isApproach ? 'Approach done' : (phase == Phase.longRest ? 'Long rest done' : 'Rest done');
     final body = isApproach
@@ -184,7 +205,7 @@ class LocalNotificationsAlarmService implements AlarmService {
       category: AndroidNotificationCategory.alarm,
       audioAttributesUsage: AudioAttributesUsage.alarm,
       playSound: sound,
-      sound: RawResourceAndroidNotificationSound(soundName),
+      sound: sound ? RawResourceAndroidNotificationSound(soundName) : null,
       enableVibration: vibrate,
       autoCancel: true,
     );
@@ -196,8 +217,6 @@ class LocalNotificationsAlarmService implements AlarmService {
       sound: sound ? '$soundName.wav' : null,
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
-    const linux = LinuxNotificationDetails(urgency: LinuxNotificationUrgency.critical);
-
     final exact = _caps.exactAlarmsAllowed;
     try {
       await _plugin.zonedSchedule(
@@ -205,7 +224,7 @@ class LocalNotificationsAlarmService implements AlarmService {
         title: title,
         body: body,
         scheduledDate: tz.TZDateTime.from(at.toUtc(), tz.UTC),
-        notificationDetails: NotificationDetails(android: android, iOS: darwin, macOS: darwin, linux: linux),
+        notificationDetails: NotificationDetails(android: android, iOS: darwin, macOS: darwin),
         androidScheduleMode: exact ? AndroidScheduleMode.alarmClock : AndroidScheduleMode.inexactAllowWhileIdle,
         payload: isApproach ? payloadApproach : payloadRest,
       );
@@ -239,6 +258,7 @@ class LocalNotificationsAlarmService implements AlarmService {
         ? (target == null || target.isEmpty ? 'Approach' : 'Approach: ${target.description}')
         : phase.label;
     final body = 'Ends at ${DateFormat('HH:mm').format(endsAt.toLocal())}';
+    final msUntilEnd = endsAt.difference(clock.now()).inMilliseconds;
     try {
       await _plugin.show(
         id: ongoingId,
@@ -261,6 +281,9 @@ class LocalNotificationsAlarmService implements AlarmService {
             when: endsAt.millisecondsSinceEpoch,
             usesChronometer: true,
             chronometerCountDown: true,
+            // Removed by the system at the end of the phase, so it never
+            // counts into negative time if the app is frozen or killed.
+            timeoutAfter: msUntilEnd < 1000 ? 1000 : msUntilEnd,
             category: AndroidNotificationCategory.progress,
           ),
         ),

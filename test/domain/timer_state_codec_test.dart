@@ -15,7 +15,7 @@ void main() {
     snoozeBy: Duration(seconds: 90),
     autoStartRest: false,
   );
-  const target = ApproachTarget(taskId: 't', taskTitle: 'Laundry', rungPosition: 2, rungText: 'Sit up');
+  const target = ApproachTarget(taskId: 't', taskTitle: 'Laundry', rungId: 'r2', rungPosition: 2, rungText: 'Sit up');
 
   test('running state round-trips through JSON', () {
     var tr = engine.reduce(

@@ -69,6 +69,7 @@ Session sessionFromRow(SessionRow r) => Session(
   runId: r.runId,
   taskId: r.taskId,
   taskTitle: r.taskTitle,
+  rungId: r.rungId,
   rungPosition: r.rungPosition,
   rungText: r.rungText,
   phase: Phase.fromStorageKey(r.phase),
@@ -89,6 +90,7 @@ SessionsCompanion sessionToCompanion(Session s, DateTime now) => SessionsCompani
   runId: Value(s.runId),
   taskId: Value(s.taskId),
   taskTitle: Value(s.taskTitle),
+  rungId: Value(s.rungId),
   rungPosition: Value(s.rungPosition),
   rungText: Value(s.rungText),
   phase: Value(s.phase.storageKey),
@@ -108,9 +110,16 @@ SessionsCompanion sessionToCompanion(Session s, DateTime now) => SessionsCompani
 ProgressSnapshot progressFromRow(ProgressRow r) => ProgressSnapshot(
   totalXp: r.totalXp,
   consistency: r.consistency,
-  lastActiveDay: r.lastActiveDay == null
-      ? null
-      : DateTime(r.lastActiveDay!.toLocal().year, r.lastActiveDay!.toLocal().month,
-          r.lastActiveDay!.toLocal().day),
+  lastActiveDay: r.lastActiveDay == null ? null : activeDayFromStored(r.lastActiveDay!),
   totalCompletedIntervals: r.totalCompletedIntervals,
 );
+
+/// `lastActiveDay` is a calendar date, not an instant. It is written as noon
+/// UTC of that date and must be read back in UTC too; converting to local
+/// time first would shift the date in zones at UTC+12 or beyond.
+DateTime activeDayFromStored(DateTime stored) {
+  final u = stored.toUtc();
+  return DateTime(u.year, u.month, u.day);
+}
+
+DateTime activeDayToStored(DateTime day) => DateTime.utc(day.year, day.month, day.day, 12);

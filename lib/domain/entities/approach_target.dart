@@ -7,12 +7,17 @@ class ApproachTarget {
   const ApproachTarget({
     this.taskId,
     this.taskTitle,
+    this.rungId,
     this.rungPosition,
     this.rungText,
   });
 
   final String? taskId;
   final String? taskTitle;
+
+  /// Stable id of the rung. Positions get renumbered when a ladder is edited;
+  /// the id is what "same rung" means across sessions.
+  final String? rungId;
   final int? rungPosition;
   final String? rungText;
 
@@ -26,11 +31,12 @@ class ApproachTarget {
       other is ApproachTarget &&
       other.taskId == taskId &&
       other.taskTitle == taskTitle &&
+      other.rungId == rungId &&
       other.rungPosition == rungPosition &&
       other.rungText == rungText;
 
   @override
-  int get hashCode => Object.hash(taskId, taskTitle, rungPosition, rungText);
+  int get hashCode => Object.hash(taskId, taskTitle, rungId, rungPosition, rungText);
 
   @override
   String toString() => 'ApproachTarget($description)';

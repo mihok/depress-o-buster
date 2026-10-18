@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The chimes are only referenced by name from Dart, so the release resource
+     shrinker would strip them. Keep them, and the icon used by notifications. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/approach_done,@raw/rest_done,@mipmap/ic_launcher" />

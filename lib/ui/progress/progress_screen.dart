@@ -25,11 +25,16 @@ class ProgressStats {
 
 final progressStatsProvider = FutureProvider.autoDispose<ProgressStats>((ref) async {
   ref.watch(recentSessionsProvider);
+  final tasks = ref.watch(tasksProvider).value ?? const <Task>[];
   final repo = ref.watch(sessionRepositoryProvider);
+  final taskRepo = ref.watch(taskRepositoryProvider);
+  final ladders = <String, List<LadderStep>>{
+    for (final t in tasks) t.id: await taskRepo.ladder(t.id),
+  };
   return ProgressStats(
     perDay: await repo.approachesPerDay(days: 14),
     longestApproach: await repo.longestApproach(),
-    rungs: await repo.rungProgressByTask(),
+    rungs: await repo.rungProgressByTask(ladders: ladders),
     totalCompleted: await repo.totalCompleted(),
   );
 });

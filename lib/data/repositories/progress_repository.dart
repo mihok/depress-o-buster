@@ -39,9 +39,7 @@ class ProgressRepository {
         id: const Value(_rowId),
         totalXp: Value(snapshot.totalXp),
         consistency: Value(snapshot.consistency),
-        lastActiveDay: Value(
-          last == null ? null : DateTime.utc(last.year, last.month, last.day, 12),
-        ),
+        lastActiveDay: Value(last == null ? null : activeDayToStored(last)),
         totalCompletedIntervals: Value(snapshot.totalCompletedIntervals),
         updatedAt: Value(clock.now().toUtc()),
       ),

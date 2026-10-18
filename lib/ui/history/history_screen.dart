@@ -13,7 +13,7 @@ class HistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final sessions = ref.watch(recentSessionsProvider).value ?? const <Session>[];
+    final sessions = ref.watch(allSessionsProvider).value ?? const <Session>[];
     final groups = <DateTime, List<Session>>{};
     for (final s in sessions) {
       final day = DateTime(s.endedAt.year, s.endedAt.month, s.endedAt.day);

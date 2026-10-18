@@ -60,6 +60,8 @@ class Sessions extends Table {
   // Not a foreign key on purpose: history outlives deleted tasks.
   TextColumn get taskId => text().nullable()();
   TextColumn get taskTitle => text().nullable()();
+  // Stable rung identity; positions are only a snapshot (ladders get edited).
+  TextColumn get rungId => text().nullable()();
   IntColumn get rungPosition => integer().nullable()();
   TextColumn get rungText => text().nullable()();
   TextColumn get phase => text()();
@@ -108,11 +110,14 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.addColumn(sessions, sessions.rungId);
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

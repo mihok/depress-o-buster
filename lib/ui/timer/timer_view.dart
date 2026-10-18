@@ -205,6 +205,7 @@ class _Controls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(timerControllerProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
     final snoozeBy = state.config.snoozeBy;
 
     Future<void> confirmStop() async {
@@ -268,7 +269,10 @@ class _Controls extends ConsumerWidget {
           children: [
             FilledButton(
               onPressed: controller.finishEarly,
-              style: FilledButton.styleFrom(backgroundColor: AppColors.rest),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.secondary,
+                foregroundColor: scheme.onSecondary,
+              ),
               child: const Text('End rest early'),
             ),
             const SizedBox(height: 12),
@@ -297,6 +301,33 @@ class _Controls extends ConsumerWidget {
                   ),
                 if (state.isApproach) const SizedBox(width: 12),
                 Expanded(child: TextButton(onPressed: confirmStop, child: const Text('Stop'))),
+              ],
+            ),
+          ],
+        );
+      case TimerStatus.finished when state.isApproach:
+        // "Start rest automatically" is off: the rest is started by hand.
+        return Column(
+          children: [
+            FilledButton(
+              onPressed: controller.startRest,
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.secondary,
+                foregroundColor: scheme.onSecondary,
+              ),
+              child: Text('Start ${TimerEngine.restPhaseFor(state.config, state.cycleIndex).label.toLowerCase()}'),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => controller.start(config: state.config, target: state.target),
+                    child: const Text('Another round'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: TextButton(onPressed: controller.reset, child: const Text('Done for now'))),
               ],
             ),
           ],

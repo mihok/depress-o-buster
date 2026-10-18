@@ -92,8 +92,9 @@ class TaskDetailScreen extends ConsumerWidget {
                               : Text(formatWords(step.suggestedDuration!)),
                           trailing: ReorderableDragStartListener(
                             index: index,
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
+                            child: const SizedBox(
+                              width: 48,
+                              height: 48,
                               child: Icon(Icons.drag_handle),
                             ),
                           ),
@@ -164,6 +165,7 @@ class TaskDetailScreen extends ConsumerWidget {
                   target: ApproachTarget(
                     taskId: task.id,
                     taskTitle: task.title,
+                    rungId: step.id,
                     rungPosition: step.position,
                     rungText: step.text,
                   ),

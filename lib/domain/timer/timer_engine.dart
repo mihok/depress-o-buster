@@ -32,7 +32,13 @@ class TimerEngine {
       return TimerTransition(s, const []);
     }
     final config = e.config ?? s.config;
-    final phase = e.phase;
+    final cycleIndex = s.status == TimerStatus.finished ? s.cycleIndex : 0;
+    // A rest started by hand (autoStartRest off) still honours the long rest.
+    final phase = switch (e.phase) {
+      Phase.approach => Phase.approach,
+      Phase.longRest => Phase.longRest,
+      Phase.rest => restPhaseFor(config, cycleIndex),
+    };
     final planned = config.durationFor(phase);
     final endsAt = e.now.add(planned);
     final target = phase == Phase.approach ? e.target : (e.target ?? s.target);
@@ -50,14 +56,26 @@ class TimerEngine {
       pausedTotal: Duration.zero,
       clearPaused: true,
       snoozeCount: 0,
-      cycleIndex: s.status == TimerStatus.finished ? s.cycleIndex : 0,
+      cycleIndex: cycleIndex,
     );
     return TimerTransition(next, [
       const CancelAlarms(),
       ScheduleAlarm(phase: phase, at: endsAt, target: target),
+      ..._restAlarmAfterApproach(next),
       ShowOngoing(phase: phase, endsAt: endsAt, target: target),
       const PlaySound(SoundKind.start, alarmAlreadyFired: false),
     ]);
+  }
+
+  /// The rest alarm is scheduled together with the approach alarm, so the
+  /// end of the rest is signalled even when the app process is suspended or
+  /// dead at the moment the approach ends. Re-scheduling the same alarm id
+  /// later (when the approach actually ends) is harmless.
+  List<TimerEffect> _restAlarmAfterApproach(TimerState s) {
+    if (s.phase != Phase.approach || !s.config.autoStartRest) return const [];
+    final restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
+    final at = s.phaseEndsAt!.add(s.config.durationFor(restPhase));
+    return [ScheduleAlarm(phase: restPhase, at: at, target: s.target)];
   }
 
   TimerTransition _tick(TimerState s, Tick e) {
@@ -95,6 +113,7 @@ class TimerEngine {
     );
     return TimerTransition(next, [
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
+      ..._restAlarmAfterApproach(next),
       ShowOngoing(phase: s.phase, endsAt: endsAt, target: s.target),
     ]);
   }
@@ -122,6 +141,7 @@ class TimerEngine {
     return TimerTransition(next, [
       const CancelAlarms(),
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
+      ..._restAlarmAfterApproach(next),
       ShowOngoing(phase: s.phase, endsAt: endsAt, target: s.target),
     ]);
   }
@@ -200,7 +220,7 @@ class TimerEngine {
     }
 
     if (isApproach && s.config.autoStartRest) {
-      final restPhase = _restPhaseFor(s.config, cycleIndex);
+      final restPhase = restPhaseFor(s.config, cycleIndex);
       final planned = s.config.durationFor(restPhase);
       final restEndsAt = endedAt.add(planned);
       final next = s.copyWith(
@@ -240,7 +260,8 @@ class TimerEngine {
     ]);
   }
 
-  static Phase _restPhaseFor(TimerConfig config, int completedApproaches) {
+  /// Which rest follows the [completedApproaches]-th approach.
+  static Phase restPhaseFor(TimerConfig config, int completedApproaches) {
     final n = config.cyclesBeforeLongRest;
     if (n > 0 && config.longRest != null && completedApproaches % n == 0) {
       return Phase.longRest;
