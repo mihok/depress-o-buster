@@ -49,25 +49,42 @@ Known limitations:
 
 * Scheduling: `zonedSchedule` with a `DarwinNotificationDetails` that names the bundled sound
   (`approach_done.wav`, `rest_done.wav` in the Runner target) and `InterruptionLevel.timeSensitive`.
-* Permission: alert and sound, asked on the first timer start. Badge is not requested.
+* Time Sensitive: `Runner/Runner.entitlements` carries `com.apple.developer.usernotifications.time-sensitive`
+  and the Runner configurations point at it (`CODE_SIGN_ENTITLEMENTS`). With automatic signing Xcode adds the
+  capability to the App ID on the first build; no Apple approval is needed. Time Sensitive alarms get through
+  Focus modes (unless the person has turned that off for the app) but still obey the ring/silent switch.
+* Live Activity: the `TimerActivityExtension` target (`ios/TimerActivity`, WidgetKit, iOS 16.2+) shows the
+  countdown on the lock screen and in the Dynamic Island. The app starts and updates it through the
+  `app.depressobuster/live_activity` method channel (`ios/Runner/LiveActivityBridge.swift`); the attributes in
+  `ios/Shared/TimerActivityAttributes.swift` are compiled into both targets. One activity per run: snooze,
+  pause and the switch to rest update it; stop, reset and the end of the rest end it. The activity is marked
+  stale at the end of the approach and carries the end of the following rest, so the lock screen switches to the
+  rest countdown on its own even if the app is suspended at that moment. `NSSupportsLiveActivities` is set in
+  the Runner `Info.plist`.
+* Permission: alert and sound, asked on the first timer start. Badge is not requested. Live Activities need no
+  permission but can be turned off per app in Settings; the app then just has no lock-screen countdown.
 * Sounds: the files are added to the Xcode Resources phase by hand in `project.pbxproj`. Keep them under 30 seconds
   and in a format iOS accepts (WAV, AIFF, CAF).
 
 Known limitations:
 
 * iOS gives apps no background execution for timers. Everything after the app leaves the foreground is the
-  scheduled notification. The in-app chime, haptics and the countdown screen only run while the app is open.
-* Notification sounds obey the ring/silent switch and Focus. Time Sensitive notifications can break through Focus
-  only if the Runner target has the Time Sensitive Notifications capability enabled in Xcode (Signing &
-  Capabilities). It is not enabled by default because it changes signing. Critical Alerts, which play even on
-  silent, need an entitlement that Apple grants per app on request and are not used.
-* There is no ongoing notification or lock-screen countdown. A Live Activity would do this and needs a native
-  WidgetKit extension; the seam for it is `AlarmService.showOngoing`, which iOS currently ignores.
-* If the user force-quits the app the scheduled notification still fires; the app logs the phase when next opened.
+  pre-scheduled notifications plus the Live Activity. The in-app chime and haptics only run while the app is open.
+* Critical Alerts, which play even on silent, need an entitlement that Apple grants per app on request and are
+  not used.
+* A Live Activity that is never ended by the app (the app was killed before the rest ended) stays on the lock
+  screen until the system removes it (up to a few hours after its stale date) or until the app next runs, when
+  it is ended or replaced. The countdown it shows stays correct the whole time.
+* The extension cannot be built or run from this Linux environment; it was written against the ActivityKit and
+  WidgetKit APIs for iOS 16.2 and checked by review, not by Xcode. The first build on a Mac should be done from
+  Xcode so signing can register the extension's bundle id (`app.depressobuster.depressOBuster.TimerActivity`).
+* If the user force-quits the app the scheduled notifications still fire; the app logs the phases when next
+  opened.
 
 ## macOS
 
-Best effort through the same plugin. Sounds are not bundled in the macOS target yet, so the default sound plays.
+Best effort through the same plugin. The two chimes are bundled in the macOS Runner target too, so the
+notifications play them. There is no Live Activity on macOS.
 
 ## Linux, Windows and web
 

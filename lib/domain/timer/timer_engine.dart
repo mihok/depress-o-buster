@@ -62,9 +62,25 @@ class TimerEngine {
       const CancelAlarms(),
       ScheduleAlarm(phase: phase, at: endsAt, target: target),
       ..._restAlarmAfterApproach(next),
-      ShowOngoing(phase: phase, endsAt: endsAt, target: target),
+      _ongoingFor(next),
       const PlaySound(SoundKind.start, alarmAlreadyFired: false),
     ]);
+  }
+
+  /// The live countdown for the current phase of a running state.
+  ShowOngoing _ongoingFor(TimerState s) {
+    DateTime? restEndsAt;
+    if (s.phase == Phase.approach && s.config.autoStartRest) {
+      final restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
+      restEndsAt = s.phaseEndsAt!.add(s.config.durationFor(restPhase));
+    }
+    return ShowOngoing(
+      runId: s.runId,
+      phase: s.phase,
+      endsAt: s.phaseEndsAt!,
+      target: s.target,
+      restEndsAt: restEndsAt,
+    );
   }
 
   /// The rest alarm is scheduled together with the approach alarm, so the
@@ -114,7 +130,7 @@ class TimerEngine {
     return TimerTransition(next, [
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
       ..._restAlarmAfterApproach(next),
-      ShowOngoing(phase: s.phase, endsAt: endsAt, target: s.target),
+      _ongoingFor(next),
     ]);
   }
 
@@ -142,7 +158,7 @@ class TimerEngine {
       const CancelAlarms(),
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
       ..._restAlarmAfterApproach(next),
-      ShowOngoing(phase: s.phase, endsAt: endsAt, target: s.target),
+      _ongoingFor(next),
     ]);
   }
 
@@ -240,7 +256,7 @@ class TimerEngine {
         ended,
         sound,
         ScheduleAlarm(phase: restPhase, at: restEndsAt, target: s.target),
-        ShowOngoing(phase: restPhase, endsAt: restEndsAt, target: s.target),
+        _ongoingFor(next),
       ]);
     }
 
@@ -553,11 +569,23 @@ final class CancelAlarms extends TimerEffect {
   const CancelAlarms();
 }
 
+/// Show (or update) the live countdown: an ongoing notification on Android,
+/// a Live Activity on iOS. [restEndsAt] is set during an approach when a
+/// rest will follow automatically, so a lock-screen view can switch to the
+/// rest on its own if the app is suspended when the approach ends.
 final class ShowOngoing extends TimerEffect {
-  const ShowOngoing({required this.phase, required this.endsAt, this.target});
+  const ShowOngoing({
+    required this.runId,
+    required this.phase,
+    required this.endsAt,
+    this.target,
+    this.restEndsAt,
+  });
+  final String runId;
   final Phase phase;
   final DateTime endsAt;
   final ApproachTarget? target;
+  final DateTime? restEndsAt;
 }
 
 final class HideOngoing extends TimerEffect {

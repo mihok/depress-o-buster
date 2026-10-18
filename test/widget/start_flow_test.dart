@@ -52,8 +52,13 @@ class _RecordingAlarmService extends NoopAlarmService {
   Future<void> cancelScheduled() async => calls.add('cancel');
 
   @override
-  Future<void> showOngoing({required Phase phase, required DateTime endsAt, ApproachTarget? target}) async =>
-      calls.add('ongoing:${phase.name}');
+  Future<void> showOngoing({
+    required String runId,
+    required Phase phase,
+    required DateTime endsAt,
+    ApproachTarget? target,
+    DateTime? restEndsAt,
+  }) async => calls.add('ongoing:${phase.name}');
 
   @override
   Future<void> hideOngoing() async => calls.add('hide');

@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../domain/entities/approach_target.dart';
 import '../../domain/entities/phase.dart';
 import 'alarm_service.dart';
+import 'live_activity_channel.dart';
 
 /// Alarms via `flutter_local_notifications`.
 ///
@@ -18,13 +19,17 @@ import 'alarm_service.dart';
 /// app), each phase on its own channel with its own gentle sound, plus an
 /// ongoing low-importance notification that counts down with a chronometer.
 /// iOS: a scheduled notification with a bundled sound at the time-sensitive
-/// interruption level. There is no ongoing notification on iOS.
-/// See docs/PLATFORM_ALARMS.md for the limitations.
+/// interruption level, plus a Live Activity (lock screen and Dynamic Island)
+/// for the countdown. See docs/PLATFORM_ALARMS.md for the limitations.
 class LocalNotificationsAlarmService implements AlarmService {
-  LocalNotificationsAlarmService({FlutterLocalNotificationsPlugin? plugin})
-    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  LocalNotificationsAlarmService({
+    FlutterLocalNotificationsPlugin? plugin,
+    LiveActivityChannel? liveActivity,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _liveActivity = liveActivity ?? LiveActivityChannel();
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final LiveActivityChannel _liveActivity;
   final _taps = StreamController<String?>.broadcast();
   AlarmCapabilities _caps = AlarmCapabilities.unsupported;
   bool _initialized = false;
@@ -246,11 +251,23 @@ class LocalNotificationsAlarmService implements AlarmService {
 
   @override
   Future<void> showOngoing({
+    required String runId,
     required Phase phase,
     required DateTime endsAt,
     ApproachTarget? target,
+    DateTime? restEndsAt,
   }) async {
-    // Only Android has a notion of an ongoing, silently updated notification.
+    if (!kIsWeb && Platform.isIOS) {
+      await _liveActivity.show(
+        runId: runId,
+        phase: phase,
+        title: target == null || target.isEmpty ? phase.label : target.description,
+        endsAt: endsAt,
+        restEndsAt: restEndsAt,
+      );
+      return;
+    }
+    // Android: an ongoing, silently updated notification.
     final android = _android;
     if (android == null) return;
     final isApproach = phase == Phase.approach;
@@ -295,6 +312,10 @@ class LocalNotificationsAlarmService implements AlarmService {
 
   @override
   Future<void> hideOngoing() async {
+    if (!kIsWeb && Platform.isIOS) {
+      await _liveActivity.hide();
+      return;
+    }
     if (_android == null) return;
     try {
       await _plugin.cancel(id: ongoingId);

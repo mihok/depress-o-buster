@@ -207,9 +207,11 @@ class TimerController extends Notifier<TimerState> {
             await _alarms.cancelScheduled();
           case ShowOngoing():
             await _alarms.showOngoing(
+              runId: effect.runId,
               phase: effect.phase,
               endsAt: effect.endsAt,
               target: effect.target,
+              restEndsAt: effect.restEndsAt,
             );
           case HideOngoing():
             await _alarms.hideOngoing();
