@@ -1497,6 +1497,15 @@ class $SessionsTable extends Sessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _rungIdMeta = const VerificationMeta('rungId');
+  @override
+  late final GeneratedColumn<String> rungId = GeneratedColumn<String>(
+    'rung_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _rungPositionMeta = const VerificationMeta(
     'rungPosition',
   );
@@ -1658,6 +1667,7 @@ class $SessionsTable extends Sessions
     runId,
     taskId,
     taskTitle,
+    rungId,
     rungPosition,
     rungText,
     phase,
@@ -1708,6 +1718,12 @@ class $SessionsTable extends Sessions
       context.handle(
         _taskTitleMeta,
         taskTitle.isAcceptableOrUnknown(data['task_title']!, _taskTitleMeta),
+      );
+    }
+    if (data.containsKey('rung_id')) {
+      context.handle(
+        _rungIdMeta,
+        rungId.isAcceptableOrUnknown(data['rung_id']!, _rungIdMeta),
       );
     }
     if (data.containsKey('rung_position')) {
@@ -1845,6 +1861,10 @@ class $SessionsTable extends Sessions
         DriftSqlType.string,
         data['${effectivePrefix}task_title'],
       ),
+      rungId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rung_id'],
+      ),
       rungPosition: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rung_position'],
@@ -1915,6 +1935,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
   final String runId;
   final String? taskId;
   final String? taskTitle;
+  final String? rungId;
   final int? rungPosition;
   final String? rungText;
   final String phase;
@@ -1934,6 +1955,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     required this.runId,
     this.taskId,
     this.taskTitle,
+    this.rungId,
     this.rungPosition,
     this.rungText,
     required this.phase,
@@ -1959,6 +1981,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     }
     if (!nullToAbsent || taskTitle != null) {
       map['task_title'] = Variable<String>(taskTitle);
+    }
+    if (!nullToAbsent || rungId != null) {
+      map['rung_id'] = Variable<String>(rungId);
     }
     if (!nullToAbsent || rungPosition != null) {
       map['rung_position'] = Variable<int>(rungPosition);
@@ -1995,6 +2020,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       taskTitle: taskTitle == null && nullToAbsent
           ? const Value.absent()
           : Value(taskTitle),
+      rungId: rungId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rungId),
       rungPosition: rungPosition == null && nullToAbsent
           ? const Value.absent()
           : Value(rungPosition),
@@ -2030,6 +2058,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       runId: serializer.fromJson<String>(json['runId']),
       taskId: serializer.fromJson<String?>(json['taskId']),
       taskTitle: serializer.fromJson<String?>(json['taskTitle']),
+      rungId: serializer.fromJson<String?>(json['rungId']),
       rungPosition: serializer.fromJson<int?>(json['rungPosition']),
       rungText: serializer.fromJson<String?>(json['rungText']),
       phase: serializer.fromJson<String>(json['phase']),
@@ -2054,6 +2083,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       'runId': serializer.toJson<String>(runId),
       'taskId': serializer.toJson<String?>(taskId),
       'taskTitle': serializer.toJson<String?>(taskTitle),
+      'rungId': serializer.toJson<String?>(rungId),
       'rungPosition': serializer.toJson<int?>(rungPosition),
       'rungText': serializer.toJson<String?>(rungText),
       'phase': serializer.toJson<String>(phase),
@@ -2076,6 +2106,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     String? runId,
     Value<String?> taskId = const Value.absent(),
     Value<String?> taskTitle = const Value.absent(),
+    Value<String?> rungId = const Value.absent(),
     Value<int?> rungPosition = const Value.absent(),
     Value<String?> rungText = const Value.absent(),
     String? phase,
@@ -2095,6 +2126,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     runId: runId ?? this.runId,
     taskId: taskId.present ? taskId.value : this.taskId,
     taskTitle: taskTitle.present ? taskTitle.value : this.taskTitle,
+    rungId: rungId.present ? rungId.value : this.rungId,
     rungPosition: rungPosition.present ? rungPosition.value : this.rungPosition,
     rungText: rungText.present ? rungText.value : this.rungText,
     phase: phase ?? this.phase,
@@ -2116,6 +2148,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       runId: data.runId.present ? data.runId.value : this.runId,
       taskId: data.taskId.present ? data.taskId.value : this.taskId,
       taskTitle: data.taskTitle.present ? data.taskTitle.value : this.taskTitle,
+      rungId: data.rungId.present ? data.rungId.value : this.rungId,
       rungPosition: data.rungPosition.present
           ? data.rungPosition.value
           : this.rungPosition,
@@ -2150,6 +2183,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           ..write('runId: $runId, ')
           ..write('taskId: $taskId, ')
           ..write('taskTitle: $taskTitle, ')
+          ..write('rungId: $rungId, ')
           ..write('rungPosition: $rungPosition, ')
           ..write('rungText: $rungText, ')
           ..write('phase: $phase, ')
@@ -2174,6 +2208,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     runId,
     taskId,
     taskTitle,
+    rungId,
     rungPosition,
     rungText,
     phase,
@@ -2197,6 +2232,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           other.runId == this.runId &&
           other.taskId == this.taskId &&
           other.taskTitle == this.taskTitle &&
+          other.rungId == this.rungId &&
           other.rungPosition == this.rungPosition &&
           other.rungText == this.rungText &&
           other.phase == this.phase &&
@@ -2218,6 +2254,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
   final Value<String> runId;
   final Value<String?> taskId;
   final Value<String?> taskTitle;
+  final Value<String?> rungId;
   final Value<int?> rungPosition;
   final Value<String?> rungText;
   final Value<String> phase;
@@ -2238,6 +2275,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     this.runId = const Value.absent(),
     this.taskId = const Value.absent(),
     this.taskTitle = const Value.absent(),
+    this.rungId = const Value.absent(),
     this.rungPosition = const Value.absent(),
     this.rungText = const Value.absent(),
     this.phase = const Value.absent(),
@@ -2259,6 +2297,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     required String runId,
     this.taskId = const Value.absent(),
     this.taskTitle = const Value.absent(),
+    this.rungId = const Value.absent(),
     this.rungPosition = const Value.absent(),
     this.rungText = const Value.absent(),
     required String phase,
@@ -2288,6 +2327,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     Expression<String>? runId,
     Expression<String>? taskId,
     Expression<String>? taskTitle,
+    Expression<String>? rungId,
     Expression<int>? rungPosition,
     Expression<String>? rungText,
     Expression<String>? phase,
@@ -2309,6 +2349,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
       if (runId != null) 'run_id': runId,
       if (taskId != null) 'task_id': taskId,
       if (taskTitle != null) 'task_title': taskTitle,
+      if (rungId != null) 'rung_id': rungId,
       if (rungPosition != null) 'rung_position': rungPosition,
       if (rungText != null) 'rung_text': rungText,
       if (phase != null) 'phase': phase,
@@ -2332,6 +2373,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     Value<String>? runId,
     Value<String?>? taskId,
     Value<String?>? taskTitle,
+    Value<String?>? rungId,
     Value<int?>? rungPosition,
     Value<String?>? rungText,
     Value<String>? phase,
@@ -2353,6 +2395,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
       runId: runId ?? this.runId,
       taskId: taskId ?? this.taskId,
       taskTitle: taskTitle ?? this.taskTitle,
+      rungId: rungId ?? this.rungId,
       rungPosition: rungPosition ?? this.rungPosition,
       rungText: rungText ?? this.rungText,
       phase: phase ?? this.phase,
@@ -2385,6 +2428,9 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     }
     if (taskTitle.present) {
       map['task_title'] = Variable<String>(taskTitle.value);
+    }
+    if (rungId.present) {
+      map['rung_id'] = Variable<String>(rungId.value);
     }
     if (rungPosition.present) {
       map['rung_position'] = Variable<int>(rungPosition.value);
@@ -2441,6 +2487,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
           ..write('runId: $runId, ')
           ..write('taskId: $taskId, ')
           ..write('taskTitle: $taskTitle, ')
+          ..write('rungId: $rungId, ')
           ..write('rungPosition: $rungPosition, ')
           ..write('rungText: $rungText, ')
           ..write('phase: $phase, ')
@@ -3877,6 +3924,7 @@ typedef $$SessionsTableCreateCompanionBuilder = SessionsCompanion Function({
   required String runId,
   Value<String?> taskId,
   Value<String?> taskTitle,
+  Value<String?> rungId,
   Value<int?> rungPosition,
   Value<String?> rungText,
   required String phase,
@@ -3898,6 +3946,7 @@ typedef $$SessionsTableUpdateCompanionBuilder = SessionsCompanion Function({
   Value<String> runId,
   Value<String?> taskId,
   Value<String?> taskTitle,
+  Value<String?> rungId,
   Value<int?> rungPosition,
   Value<String?> rungText,
   Value<String> phase,
@@ -3941,6 +3990,11 @@ class $$SessionsTableFilterComposer
 
   ColumnFilters<String> get taskTitle => $composableBuilder(
     column: $table.taskTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rungId => $composableBuilder(
+    column: $table.rungId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4044,6 +4098,11 @@ class $$SessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get rungId => $composableBuilder(
+    column: $table.rungId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get rungPosition => $composableBuilder(
     column: $table.rungPosition,
     builder: (column) => ColumnOrderings(column),
@@ -4136,6 +4195,9 @@ class $$SessionsTableAnnotationComposer
   GeneratedColumn<String> get taskTitle =>
       $composableBuilder(column: $table.taskTitle, builder: (column) => column);
 
+  GeneratedColumn<String> get rungId =>
+      $composableBuilder(column: $table.rungId, builder: (column) => column);
+
   GeneratedColumn<int> get rungPosition => $composableBuilder(
     column: $table.rungPosition,
     builder: (column) => column,
@@ -4224,6 +4286,7 @@ class $$SessionsTableTableManager
                 Value<String> runId = const Value.absent(),
                 Value<String?> taskId = const Value.absent(),
                 Value<String?> taskTitle = const Value.absent(),
+                Value<String?> rungId = const Value.absent(),
                 Value<int?> rungPosition = const Value.absent(),
                 Value<String?> rungText = const Value.absent(),
                 Value<String> phase = const Value.absent(),
@@ -4244,6 +4307,7 @@ class $$SessionsTableTableManager
                 runId: runId,
                 taskId: taskId,
                 taskTitle: taskTitle,
+                rungId: rungId,
                 rungPosition: rungPosition,
                 rungText: rungText,
                 phase: phase,
@@ -4266,6 +4330,7 @@ class $$SessionsTableTableManager
                 required String runId,
                 Value<String?> taskId = const Value.absent(),
                 Value<String?> taskTitle = const Value.absent(),
+                Value<String?> rungId = const Value.absent(),
                 Value<int?> rungPosition = const Value.absent(),
                 Value<String?> rungText = const Value.absent(),
                 required String phase,
@@ -4286,6 +4351,7 @@ class $$SessionsTableTableManager
                 runId: runId,
                 taskId: taskId,
                 taskTitle: taskTitle,
+                rungId: rungId,
                 rungPosition: rungPosition,
                 rungText: rungText,
                 phase: phase,

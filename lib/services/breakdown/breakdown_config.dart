@@ -13,6 +13,7 @@ class BreakdownConfig {
     this.systemPrompt = defaultSystemPrompt,
     this.timeout = const Duration(seconds: 60),
     this.useServerSideFallback = true,
+    this.directBrowserAccess = false,
   });
 
   static const BreakdownConfig defaults = BreakdownConfig();
@@ -35,6 +36,10 @@ class BreakdownConfig {
   /// Sends `fallbacks: "default"` so a safety decline is retried server-side
   /// on another model instead of failing.
   final bool useServerSideFallback;
+
+  /// Set on the web: the API only accepts browser requests that opt in with
+  /// the `anthropic-dangerous-direct-browser-access` header.
+  final bool directBrowserAccess;
 
   static const String fallbackBetaHeader = 'server-side-fallback-2026-07-01';
 
@@ -83,6 +88,7 @@ Return only the JSON object.''';
     String? systemPrompt,
     Duration? timeout,
     bool? useServerSideFallback,
+    bool? directBrowserAccess,
   }) {
     return BreakdownConfig(
       model: model ?? this.model,
@@ -93,6 +99,7 @@ Return only the JSON object.''';
       systemPrompt: systemPrompt ?? this.systemPrompt,
       timeout: timeout ?? this.timeout,
       useServerSideFallback: useServerSideFallback ?? this.useServerSideFallback,
+      directBrowserAccess: directBrowserAccess ?? this.directBrowserAccess,
     );
   }
 }

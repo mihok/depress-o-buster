@@ -31,6 +31,7 @@ void main() {
 
   T single<T extends TimerEffect>(TimerTransition tr) => tr.effects.whereType<T>().single;
   bool has<T extends TimerEffect>(TimerTransition tr) => tr.effects.whereType<T>().isNotEmpty;
+  List<ScheduleAlarm> alarms(TimerTransition tr) => tr.effects.whereType<ScheduleAlarm>().toList();
 
   group('start', () {
     test('from idle starts an approach and schedules its alarm', () {
@@ -45,11 +46,17 @@ void main() {
       expect(s.target, target);
       expect(s.cycleIndex, 0);
       expect(has<CancelAlarms>(tr), isTrue);
-      final alarm = single<ScheduleAlarm>(tr);
-      expect(alarm.phase, Phase.approach);
-      expect(alarm.at, t0.add(const Duration(minutes: 5)));
-      expect(alarm.target, target);
-      expect(single<ShowOngoing>(tr).endsAt, alarm.at);
+      final scheduled = alarms(tr);
+      expect(scheduled.map((a) => a.phase), [Phase.approach, Phase.rest]);
+      expect(scheduled[0].at, t0.add(const Duration(minutes: 5)));
+      expect(scheduled[0].target, target);
+      expect(
+        scheduled[1].at,
+        t0.add(const Duration(minutes: 35)),
+        reason: 'the rest alarm is scheduled up front so it fires even if the app is dead',
+      );
+      expect(scheduled[1].target, target);
+      expect(single<ShowOngoing>(tr).endsAt, scheduled[0].at);
       expect(single<PlaySound>(tr).kind, SoundKind.start);
       expect(has<PhaseEnded>(tr), isFalse);
     });
@@ -180,7 +187,11 @@ void main() {
       expect(tr.state.snoozeCount, 1);
       expect(tr.state.planned, const Duration(minutes: 5));
       expect(has<CancelAlarms>(tr), isTrue);
-      expect(single<ScheduleAlarm>(tr).at, t0.add(const Duration(minutes: 7)));
+      expect(
+        alarms(tr).map((a) => a.at),
+        [t0.add(const Duration(minutes: 7)), t0.add(const Duration(minutes: 37))],
+        reason: 'both the approach and the pre-scheduled rest alarm move',
+      );
       expect(single<ShowOngoing>(tr).endsAt, t0.add(const Duration(minutes: 7)));
       expect(has<PhaseEnded>(tr), isFalse);
 
@@ -236,7 +247,10 @@ void main() {
       expect(resumed.state.status, TimerStatus.running);
       expect(resumed.state.phaseEndsAt, t0.add(const Duration(minutes: 15)));
       expect(resumed.state.pausedTotal, const Duration(minutes: 10));
-      expect(single<ScheduleAlarm>(resumed).at, t0.add(const Duration(minutes: 15)));
+      expect(
+        alarms(resumed).map((a) => a.at),
+        [t0.add(const Duration(minutes: 15)), t0.add(const Duration(minutes: 45))],
+      );
       expect(has<ShowOngoing>(resumed), isTrue);
 
       final done = engine.reduce(resumed.state, Tick(t0.add(const Duration(minutes: 15))));
@@ -350,6 +364,8 @@ void main() {
       expect(tr.state.status, TimerStatus.finished);
       expect(tr.state.cycleIndex, 1);
       tr = start(tr.state, t0.add(const Duration(minutes: 31)), cfg: cfg, runId: 'run-2');
+      expect(alarms(tr).last.phase, Phase.longRest, reason: 'pre-scheduled rest alarm knows it is the long one');
+      expect(alarms(tr).last.at, t0.add(const Duration(minutes: 76)));
       tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 56))));
       expect(tr.state.phase, Phase.longRest);
       expect(tr.state.planned, const Duration(minutes: 20));
@@ -379,6 +395,36 @@ void main() {
   });
 
   group('autoStartRest off', () {
+    test('only the approach alarm is scheduled on start', () {
+      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartRest: false);
+      final tr = start(TimerState.idle(manual), t0, cfg: manual);
+      expect(alarms(tr).map((a) => a.phase), [Phase.approach]);
+    });
+
+    test('a rest started by hand honours the long-rest cycle', () {
+      const manual = TimerConfig(
+        approach: Duration(minutes: 5),
+        rest: Duration(minutes: 10),
+        longRest: Duration(minutes: 25),
+        cyclesBeforeLongRest: 2,
+        autoStartRest: false,
+      );
+      var tr = engine.reduce(running(t0, cfg: manual), Tick(t0.add(const Duration(minutes: 5))));
+      expect(tr.state.status, TimerStatus.finished);
+      tr = start(tr.state, t0.add(const Duration(minutes: 6)), phase: Phase.rest, cfg: manual, tgt: null);
+      expect(tr.state.phase, Phase.rest, reason: 'first approach: a normal rest');
+      expect(alarms(tr).map((a) => a.phase), [Phase.rest]);
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 16))));
+      tr = start(tr.state, t0.add(const Duration(minutes: 17)), cfg: manual, runId: 'run-2');
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 22))));
+      expect(tr.state.cycleIndex, 2);
+      tr = start(tr.state, t0.add(const Duration(minutes: 23)), phase: Phase.rest, cfg: manual, tgt: null);
+      expect(tr.state.phase, Phase.longRest, reason: 'second approach: the long rest is due');
+      expect(tr.state.planned, const Duration(minutes: 25));
+      expect(TimerEngine.restPhaseFor(manual, 2), Phase.longRest);
+      expect(TimerEngine.restPhaseFor(manual, 3), Phase.rest);
+    });
+
     test('approach completion ends in finished with no rest scheduled', () {
       const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartRest: false);
       final tr = engine.reduce(running(t0, cfg: manual), Tick(t0.add(const Duration(minutes: 5))));

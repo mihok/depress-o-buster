@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:uuid/uuid.dart';
+
 import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_logic.dart';
 import '../../services/breakdown/task_breakdown_service.dart';
 import '../../services/providers.dart';
 
@@ -35,9 +38,27 @@ class _BreakdownSheet extends ConsumerStatefulWidget {
 class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
   final _feeling = TextEditingController();
   bool _loading = false;
+  bool _applying = false;
   String? _error;
   BreakdownResult? _result;
   final Set<int> _selected = {};
+
+  /// Steps offered for adding: the rung being shrunk is never re-added, and
+  /// neither is any step the ladder already has.
+  List<MicroStep> get _offered {
+    final result = _result;
+    if (result == null) return const [];
+    var steps = result.steps;
+    if (widget.rung != null && steps.length > 1) {
+      // Go-smaller results end with the rung itself (by instruction).
+      steps = steps.sublist(0, steps.length - 1);
+    }
+    final existing = {for (final s in widget.ladder) _norm(s.text)};
+    if (widget.rung != null) existing.add(_norm(widget.rung!.text));
+    return [for (final s in steps) if (!existing.contains(_norm(s.text))) s];
+  }
+
+  static String _norm(String text) => text.trim().toLowerCase().replaceAll(RegExp(r'[.\s]+$'), '');
 
   @override
   void dispose() {
@@ -71,7 +92,7 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
       if (!mounted) return;
       setState(() {
         _result = result;
-        _selected.addAll(List.generate(result.steps.length, (i) => i));
+        _selected.addAll(List.generate(_offered.length, (i) => i));
       });
     } on BreakdownException catch (e) {
       if (!mounted) return;
@@ -85,47 +106,46 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
   }
 
   Future<void> _apply({required bool replace}) async {
-    final result = _result;
-    if (result == null) return;
+    if (_applying) return;
     final repo = ref.read(taskRepositoryProvider);
     final rung = widget.rung;
+    final offered = _offered;
     final chosen = [
-      for (var i = 0; i < result.steps.length; i++)
-        if (_selected.contains(i)) result.steps[i],
+      for (var i = 0; i < offered.length; i++)
+        if (_selected.contains(i)) offered[i],
     ];
     if (chosen.isEmpty) return;
-    if (replace) {
-      await repo.replaceLadder(
-        widget.task.id,
-        [
-          for (var i = 0; i < chosen.length; i++)
-            LadderStep(
-              id: 'tmp-$i',
-              taskId: widget.task.id,
-              position: i,
-              text: chosen[i].text,
-              suggestedDuration: chosen[i].suggestedDuration,
-            ),
-        ],
-      );
-    } else {
-      // Smaller steps go just before the rung they shrink; otherwise append.
-      final skipRungDuplicate = rung?.text.trim().toLowerCase();
-      var at = rung?.position ?? widget.ladder.length;
-      for (final step in chosen) {
-        if (skipRungDuplicate != null && step.text.trim().toLowerCase() == skipRungDuplicate) {
-          continue;
-        }
-        await repo.addStep(
+    setState(() => _applying = true);
+    try {
+      if (replace) {
+        // A fresh ladder for the whole task; the full result is used so the
+        // top rung is kept too.
+        final all = _result?.steps ?? chosen;
+        await repo.replaceLadder(
           widget.task.id,
-          step.text,
-          suggestedDuration: step.suggestedDuration,
-          at: at,
+          LadderLogic.fromMicroSteps(widget.task.id, all, const Uuid().v4),
         );
-        at++;
+      } else {
+        // Smaller steps go just before the rung they shrink; otherwise append.
+        var at = rung?.position ?? widget.ladder.length;
+        for (final step in chosen) {
+          await repo.addStep(
+            widget.task.id,
+            step.text,
+            suggestedDuration: step.suggestedDuration,
+            at: at,
+          );
+          at++;
+        }
       }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _applying = false;
+        _error = 'Could not save the steps. $e';
+      });
     }
-    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -134,6 +154,11 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
     final rung = widget.rung;
     final serviceName = ref.watch(breakdownServiceProvider).value?.name;
     final result = _result;
+    final offered = _offered;
+    final busy = _loading || _applying;
+    // A task-level result is a whole ladder; when the task already has rungs
+    // the honest primary action is to replace, not to append a second ladder.
+    final replaceIsPrimary = rung == null && widget.ladder.isNotEmpty;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: DraggableScrollableSheet(
@@ -161,7 +186,7 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
             ),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: _loading ? null : () => _run(),
+              onPressed: busy ? null : () => _run(),
               child: Text(result == null ? 'Break it down' : 'Try again'),
             ),
             const SizedBox(height: 6),
@@ -178,7 +203,7 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
               Text(_error!, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 8),
               OutlinedButton(
-                onPressed: _loading ? null : () => _run(forceOffline: true),
+                onPressed: busy ? null : () => _run(forceOffline: true),
                 child: const Text('Use the built-in ladder instead'),
               ),
             ],
@@ -188,37 +213,49 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
                 Text(result.note!, style: theme.textTheme.bodySmall),
                 const SizedBox(height: 8),
               ],
-              for (var i = 0; i < result.steps.length; i++)
+              if (offered.isEmpty)
+                Text(
+                  'Every step offered is already on the ladder.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              for (var i = 0; i < offered.length; i++)
                 CheckboxListTile(
                   value: _selected.contains(i),
-                  onChanged: (on) => setState(() {
-                    if (on ?? false) {
-                      _selected.add(i);
-                    } else {
-                      _selected.remove(i);
-                    }
-                  }),
+                  onChanged: busy
+                      ? null
+                      : (on) => setState(() {
+                          if (on ?? false) {
+                            _selected.add(i);
+                          } else {
+                            _selected.remove(i);
+                          }
+                        }),
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
-                  title: Text(result.steps[i].text),
-                  subtitle: result.steps[i].suggestedDuration == null
+                  title: Text(offered[i].text),
+                  subtitle: offered[i].suggestedDuration == null
                       ? null
-                      : Text(formatWords(result.steps[i].suggestedDuration!)),
+                      : Text(formatWords(offered[i].suggestedDuration!)),
                 ),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _selected.isEmpty ? null : () => _apply(replace: false),
-                child: Text(
-                  rung == null
-                      ? 'Add ${_selected.length} steps to the ladder'
-                      : 'Insert ${_selected.length} steps before this rung',
+              if (replaceIsPrimary) ...[
+                FilledButton(
+                  onPressed: busy ? null : () => _apply(replace: true),
+                  child: Text('Replace the ladder with these ${result.steps.length} steps'),
                 ),
-              ),
-              if (rung == null) ...[
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: _selected.isEmpty ? null : () => _apply(replace: true),
-                  child: const Text('Replace the whole ladder'),
+                  onPressed: busy || _selected.isEmpty ? null : () => _apply(replace: false),
+                  child: Text('Append ${_selected.length} new steps instead'),
+                ),
+              ] else ...[
+                FilledButton(
+                  onPressed: busy || _selected.isEmpty ? null : () => _apply(replace: false),
+                  child: Text(
+                    rung == null
+                        ? 'Add ${_selected.length} steps to the ladder'
+                        : 'Insert ${_selected.length} steps before this rung',
+                  ),
                 ),
               ],
             ],

@@ -38,8 +38,9 @@ Useful commands:
 
 ```sh
 flutter analyze
-flutter test                       # 119 tests: timer engine, XP rules, levels, ladders, services, repositories, start flow
+flutter test                       # 123 tests: timer engine, XP rules, levels, ladders, services, repositories, start flow
 flutter build apk --debug          # verified: permissions, receivers, raw chimes and sqlite3 libs land in the APK
+flutter build apk --release        # verified: the chimes survive resource shrinking (res/raw/keep.xml)
 flutter build web                  # verified: compiles (alarms are in-app only on the web)
 flutter build ios --no-codesign    # needs macOS
 ```
@@ -77,9 +78,10 @@ stuck. Breakdowns are always optional and never block the timer.
 
 ## Alarms and platform limitations
 
-Each phase schedules an exact local notification for the moment it ends, with a gentle, distinct chime for
-"approach done" and "rest done". The timer is derived from the wall clock, so backgrounding or killing the app
-does not drift it, and a running timer is restored on the next launch.
+Starting an approach schedules two exact local notifications at once, one for the end of the approach and one for
+the end of the rest that follows, each with its own gentle chime. So the phone can stay locked through both. The
+timer is derived from the wall clock, so backgrounding or killing the app does not drift it, and a running timer
+is restored on the next launch.
 
 * **Android**: exact alarms (`USE_EXACT_ALARM` / `SCHEDULE_EXACT_ALARM`), a live countdown in the notification
   shade, re-registration after reboot. Battery savers on some phones can still delay alarms; exempt the app if
@@ -87,7 +89,8 @@ does not drift it, and a running timer is restored on the next launch.
 * **iOS**: there is no background execution, so the notification is the alarm. It obeys the silent switch and
   Focus; enabling the Time Sensitive Notifications capability in Xcode lets it through Focus. No lock-screen
   countdown yet (a Live Activity would need a native extension).
-* **Desktop and web** compile and run, but alarms are best effort (Linux, macOS) or in-app only (Windows, web).
+* **Desktop and web** compile and run; macOS alarms are best effort, and Linux, Windows and web play the chime
+  in-app only.
 
 Details and a test checklist: `docs/PLATFORM_ALARMS.md`.
 

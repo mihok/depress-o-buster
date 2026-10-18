@@ -43,6 +43,7 @@ class ClaudeTaskBreakdownService implements TaskBreakdownService {
       'anthropic-version': config.apiVersion,
       if (config.useServerSideFallback)
         'anthropic-beta': BreakdownConfig.fallbackBetaHeader,
+      if (config.directBrowserAccess) 'anthropic-dangerous-direct-browser-access': 'true',
     };
     final body = jsonEncode(buildRequestBody(request, config));
 
@@ -105,7 +106,11 @@ class ClaudeTaskBreakdownService implements TaskBreakdownService {
       }
     }
     if (r.goSmaller && (r.currentRung?.trim().isNotEmpty ?? false)) {
-      b.writeln('Go smaller than this step: "${r.currentRung!.trim()}"');
+      final minutes = r.currentRungMinutes;
+      b.writeln(
+        'Go smaller than this step: "${r.currentRung!.trim()}"'
+        '${minutes != null && minutes > 0 ? ' (about $minutes minutes)' : ''}',
+      );
       b.writeln('Every step must be smaller than or equal to it; the last step is that step itself.');
     }
     if (r.feelingNote?.trim().isNotEmpty ?? false) {

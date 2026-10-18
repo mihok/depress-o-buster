@@ -29,11 +29,16 @@ Future<void> main() async {
     debugPrint('Alarm init failed: $e');
   }
 
+  // Seed once. A marker, not emptiness, so deleting every starter task or
+  // preset does not bring them back on the next launch.
   try {
-    await SeedData.seedIfEmpty(
-      tasks: TaskRepository(db),
-      presets: PresetRepository(db),
-    );
+    if (!await settingsService.isSeeded()) {
+      await SeedData.seedIfEmpty(
+        tasks: TaskRepository(db),
+        presets: PresetRepository(db),
+      );
+      await settingsService.markSeeded();
+    }
   } catch (e) {
     debugPrint('Seeding failed: $e');
   }

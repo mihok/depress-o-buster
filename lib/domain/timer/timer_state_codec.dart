@@ -73,6 +73,7 @@ class TimerStateCodec {
   static Map<String, dynamic> targetToJson(ApproachTarget t) => {
     'taskId': t.taskId,
     'taskTitle': t.taskTitle,
+    'rungId': t.rungId,
     'rungPosition': t.rungPosition,
     'rungText': t.rungText,
   };
@@ -80,6 +81,7 @@ class TimerStateCodec {
   static ApproachTarget targetFromJson(Map<String, dynamic> j) => ApproachTarget(
     taskId: j['taskId'] as String?,
     taskTitle: j['taskTitle'] as String?,
+    rungId: j['rungId'] as String?,
     rungPosition: (j['rungPosition'] as num?)?.toInt(),
     rungText: j['rungText'] as String?,
   );

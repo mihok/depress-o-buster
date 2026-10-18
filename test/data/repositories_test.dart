@@ -1,5 +1,6 @@
 import 'package:clock/clock.dart';
 import 'package:depress_o_buster/data/db/database.dart';
+import 'package:depress_o_buster/data/mappers.dart';
 import 'package:depress_o_buster/data/repositories/preset_repository.dart';
 import 'package:depress_o_buster/data/repositories/progress_repository.dart';
 import 'package:depress_o_buster/data/repositories/session_repository.dart';
@@ -33,6 +34,7 @@ void main() {
     required String id,
     String? taskId,
     int? rung,
+    String? rungId,
     Phase phase = Phase.approach,
     SessionOutcome outcome = SessionOutcome.completed,
     Duration actual = const Duration(minutes: 5),
@@ -45,6 +47,7 @@ void main() {
       runId: 'run-$id',
       taskId: taskId,
       taskTitle: taskId == null ? null : 'Task $taskId',
+      rungId: rungId,
       rungPosition: rung,
       rungText: rung == null ? null : 'Rung $rung',
       phase: phase,
@@ -185,11 +188,35 @@ void main() {
       expect(await sessions.longestApproach(), const Duration(minutes: 8), reason: 'abandoned and rests excluded');
       expect((await sessions.approachesForTask('t1')).map((s) => s.id), ['a', 'b', 'c']);
       expect(await sessions.totalCompleted(), 4);
+      // Without a ladder the stored positions are used as they are.
       final progressByTask = await sessions.rungProgressByTask();
       expect(progressByTask['t1']!.bestRung, 5);
       expect(progressByTask['t1']!.latestRung, 3);
       expect(progressByTask['t1']!.attempts, 3);
       expect(progressByTask['t2']!.bestRung, 0);
+    });
+
+    test('rung progress follows the current ladder by rung id', () async {
+      final task = await tasks.createTask('Laundry', ladder: const [MicroStep('a'), MicroStep('b'), MicroStep('c'), MicroStep('d')]);
+      final ladder = await tasks.ladder(task.id);
+      await sessions.insert(session(id: 's1', taskId: task.id, rung: 1, rungId: ladder[1].id, endedAt: now.subtract(const Duration(days: 2))));
+      await sessions.insert(session(id: 's2', taskId: task.id, rung: 3, rungId: ladder[3].id, endedAt: now.subtract(const Duration(days: 1))));
+      await sessions.insert(session(id: 'legacy', taskId: task.id, rung: 9, endedAt: now));
+      // Insert a smaller rung at the top: every stored position is now stale.
+      await tasks.addStep(task.id, 'tiny', at: 0);
+      final current = await tasks.ladder(task.id);
+      final byTask = await sessions.rungProgressByTask(ladders: {task.id: current});
+      final p = byTask[task.id]!;
+      expect(p.bestRung, 4, reason: 'rung d moved from 3 to 4');
+      expect(p.bestRungText, 'd');
+      expect(p.latestRung, 4, reason: 'legacy position 9 is clamped to the ladder');
+      expect(p.attempts, 3);
+      // Remove rung d: sessions on it no longer count.
+      await tasks.deleteStep(task.id, ladder[3].id);
+      final after = await sessions.rungProgressByTask(ladders: {task.id: await tasks.ladder(task.id)});
+      expect(after[task.id]!.bestRung, 3, reason: 'legacy session clamped to the new top rung');
+      expect(SessionRepository.resolveRung(session(id: 'x', taskId: task.id, rung: 2, rungId: 'gone'), current), isNull);
+      expect(SessionRepository.resolveRung(session(id: 'y', taskId: task.id, rung: 2), null)!.position, 2);
     });
 
     test('per-day counts cover the window with zeros', () async {
@@ -216,6 +243,17 @@ void main() {
   });
 
   group('ProgressRepository', () {
+    test('lastActiveDay is a calendar date in UTC, whatever the local zone', () {
+      // Written as noon UTC of the date; read back in UTC, never via toLocal().
+      expect(activeDayToStored(DateTime(2026, 10, 17)), DateTime.utc(2026, 10, 17, 12));
+      expect(activeDayFromStored(DateTime.utc(2026, 10, 17, 12)), DateTime(2026, 10, 17));
+      // A +13:00 zone would read noon UTC as the 18th through toLocal(); the
+      // UTC frame keeps the 17th.
+      final asSeenAtPlus13 = DateTime.utc(2026, 10, 17, 12).add(const Duration(hours: 13));
+      expect(asSeenAtPlus13.day, 18);
+      expect(activeDayFromStored(DateTime.utc(2026, 10, 17, 12)).day, 17);
+    });
+
     test('get creates the default row; save round-trips a date-only last active day', () async {
       expect(await progress.get(), const ProgressSnapshot());
       await progress.save(const ProgressSnapshot(totalXp: 120, consistency: 1.15, totalCompletedIntervals: 3).copyWith(lastActiveDay: DateTime(2026, 10, 17)));
@@ -248,7 +286,7 @@ void main() {
     late XpService xp;
     setUp(() {
       var n = 0;
-      xp = XpService(sessions: sessions, progress: progress, idFactory: () => 'x-${n++}');
+      xp = XpService(sessions: sessions, progress: progress, tasks: tasks, idFactory: () => 'x-${n++}');
     });
 
     PhaseEnded ended({
@@ -327,23 +365,43 @@ void main() {
       expect(p.consistency, 1.0);
     });
 
-    test('rung bonuses come from the task history', () async {
-      const t = ApproachTarget(taskId: 'laundry', taskTitle: 'Laundry', rungPosition: 2, rungText: 'Sit up');
-      await xp.logPhase(ended(target: t, at: now.subtract(const Duration(days: 1))));
-      final higher = await xp.logPhase(
-        ended(target: const ApproachTarget(taskId: 'laundry', taskTitle: 'Laundry', rungPosition: 4, rungText: 'Pile'), at: now),
+    test('rung bonuses come from the task history, by rung id', () async {
+      final task = await tasks.createTask('Laundry', ladder: StarterLadders.byTitle['Laundry']!);
+      final ladder = await tasks.ladder(task.id);
+      ApproachTarget at(int position) => ApproachTarget(
+        taskId: task.id,
+        taskTitle: task.title,
+        rungId: ladder[position].id,
+        rungPosition: position,
+        rungText: ladder[position].text,
       );
+      await xp.logPhase(ended(target: at(2), at: now.subtract(const Duration(days: 1))));
+      final higher = await xp.logPhase(ended(target: at(4), at: now));
       expect(higher.award.bonuses, contains(XpBonus.newPersonalRung));
-      final lower = await xp.logPhase(
-        ended(target: const ApproachTarget(taskId: 'laundry', taskTitle: 'Laundry', rungPosition: 3, rungText: 'Door'), at: now.add(const Duration(hours: 1))),
-      );
+      final lower = await xp.logPhase(ended(target: at(3), at: now.add(const Duration(hours: 1))));
       expect(lower.award.bonuses, isEmpty, reason: 'lower than last time, not a new max');
-      final climb = await xp.logPhase(
-        ended(target: const ApproachTarget(taskId: 'laundry', taskTitle: 'Laundry', rungPosition: 4, rungText: 'Pile'), at: now.add(const Duration(hours: 2))),
-      );
+      final climb = await xp.logPhase(ended(target: at(4), at: now.add(const Duration(hours: 2))));
       expect(climb.award.bonuses, [XpBonus.climbedLadder]);
       expect(climb.session.taskTitle, 'Laundry');
       expect(climb.session.rungPosition, 4);
+      expect(climb.session.rungId, ladder[4].id);
+
+      // Replace the ladder: old rungs are gone, so the first attempt on the
+      // new ladder has nothing to compare with and earns no rung bonus; the
+      // next higher one does.
+      await tasks.replaceLadder(task.id, LadderLogic.fromMicroSteps(task.id, const [MicroStep('x'), MicroStep('y'), MicroStep('z')], () => 'new-${DateTime.now().microsecondsSinceEpoch}'));
+      final fresh = await tasks.ladder(task.id);
+      ApproachTarget fresher(int position) => ApproachTarget(
+        taskId: task.id,
+        taskTitle: task.title,
+        rungId: fresh[position].id,
+        rungPosition: position,
+        rungText: fresh[position].text,
+      );
+      final first = await xp.logPhase(ended(target: fresher(0), at: now.add(const Duration(hours: 3))));
+      expect(first.award.bonuses, isEmpty);
+      final second = await xp.logPhase(ended(target: fresher(2), at: now.add(const Duration(hours: 4))));
+      expect(second.award.bonuses, [XpBonus.newPersonalRung]);
     });
 
     test('levelling up is reported', () async {

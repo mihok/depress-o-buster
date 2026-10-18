@@ -26,6 +26,7 @@ class AppSettings {
     this.preferClaude = true,
     this.lastPresetId,
     this.lastTargetTaskId,
+    this.notificationPermissionAsked = false,
   });
 
   final bool soundEnabled;
@@ -49,6 +50,9 @@ class AppSettings {
   final bool preferClaude;
   final String? lastPresetId;
   final String? lastTargetTaskId;
+
+  /// The system notification prompt is shown once, on the first start.
+  final bool notificationPermissionAsked;
 
   TimerConfig get timerConfig => TimerConfig(
     approach: approach,
@@ -78,6 +82,7 @@ class AppSettings {
     bool clearLastPresetId = false,
     String? lastTargetTaskId,
     bool clearLastTargetTaskId = false,
+    bool? notificationPermissionAsked,
   }) {
     return AppSettings(
       soundEnabled: soundEnabled ?? this.soundEnabled,
@@ -96,6 +101,8 @@ class AppSettings {
       lastPresetId: clearLastPresetId ? null : (lastPresetId ?? this.lastPresetId),
       lastTargetTaskId:
           clearLastTargetTaskId ? null : (lastTargetTaskId ?? this.lastTargetTaskId),
+      notificationPermissionAsked:
+          notificationPermissionAsked ?? this.notificationPermissionAsked,
     );
   }
 
@@ -115,6 +122,7 @@ class AppSettings {
     'preferClaude': preferClaude,
     'lastPresetId': lastPresetId,
     'lastTargetTaskId': lastTargetTaskId,
+    'notificationPermissionAsked': notificationPermissionAsked,
   };
 
   static AppSettings fromJson(Map<String, dynamic> j) {
@@ -142,6 +150,8 @@ class AppSettings {
       preferClaude: j['preferClaude'] as bool? ?? d.preferClaude,
       lastPresetId: j['lastPresetId'] as String?,
       lastTargetTaskId: j['lastTargetTaskId'] as String?,
+      notificationPermissionAsked:
+          j['notificationPermissionAsked'] as bool? ?? d.notificationPermissionAsked,
     );
   }
 }

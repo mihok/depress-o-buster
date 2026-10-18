@@ -144,6 +144,11 @@ void main() {
     await tester.pump();
     expect(find.text('Rest'), findsOneWidget);
     expect(find.text('10:00'), findsOneWidget);
+    // The second tap of a double tap lands on "End rest early": ignored.
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.tap(find.text('End rest early'));
+    await tester.pump();
+    expect(find.text('Rest'), findsOneWidget, reason: 'rest is sacred; taps settle for 700 ms');
     expect(h.alarms.calls.last, 'ongoing:rest');
     expect(find.textContaining('+'), findsWidgets, reason: 'XP feedback line');
     expect(find.textContaining('Your first one'), findsOneWidget);
@@ -163,6 +168,7 @@ void main() {
     expect(sessions.map((s) => s.phase), [Phase.rest, Phase.approach]);
     expect(sessions.last.outcome, SessionOutcome.snoozed);
     expect(sessions.last.rungText, 'Sit up for 2 minutes');
+    expect(sessions.last.rungId, isNotNull, reason: 'the seeded rung is matched exactly');
     expect(sessions.last.taskTitle, 'Just sit up');
     expect(sessions.last.xpEarned, greaterThan(0));
     final progress = await h.read(() => ProgressRepository(h.db).get(), tester);
@@ -268,8 +274,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start a 5 min approach here'));
     // Let the sheet and the detail route finish leaving (about 300 ms),
-    // one frame per 100 ms so the finished routes are actually removed.
-    for (var i = 0; i < 6; i++) {
+    // one frame per 100 ms so the finished routes are actually removed, and
+    // get past the controller's settle window before tapping Stop.
+    for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('Approach'), findsOneWidget);

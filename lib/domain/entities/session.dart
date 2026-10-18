@@ -33,6 +33,7 @@ class Session {
     required this.endedAt,
     this.taskId,
     this.taskTitle,
+    this.rungId,
     this.rungPosition,
     this.rungText,
     this.snoozeCount = 0,
@@ -46,6 +47,7 @@ class Session {
   final String runId;
   final String? taskId;
   final String? taskTitle;
+  final String? rungId;
   final int? rungPosition;
   final String? rungText;
   final Phase phase;
@@ -75,6 +77,7 @@ class Session {
       runId: runId,
       taskId: taskId,
       taskTitle: taskTitle,
+      rungId: rungId,
       rungPosition: rungPosition,
       rungText: rungText,
       phase: phase,

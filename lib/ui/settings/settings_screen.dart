@@ -321,7 +321,14 @@ class _ApiKeyTileState extends ConsumerState<_ApiKeyTile> {
               Expanded(
                 child: FilledButton(
                   onPressed: () async {
-                    await store.setApiKey(_controller.text);
+                    final typed = _controller.text.trim();
+                    if (typed.isEmpty) {
+                      // Nothing typed: keep whatever is stored. Remove is the
+                      // only way to delete a key.
+                      setState(() => _editing = false);
+                      return;
+                    }
+                    await store.setApiKey(typed);
                     _controller.clear();
                     ref.invalidate(apiKeyPresentProvider);
                     ref.invalidate(breakdownServiceProvider);
