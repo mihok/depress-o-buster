@@ -109,15 +109,14 @@ something) and six presets (Just sit up 2/10, Edge of bed 3/20, Laundry proximit
 
 ## 15. iOS specifics
 
-Alarms use `InterruptionLevel.timeSensitive`. For that level to break through Focus modes the Runner target needs
-the Time Sensitive Notifications capability enabled in Xcode; it is not added to the project file automatically
-because it changes signing. Critical alerts (which bypass the mute switch) need an Apple entitlement granted per
-app and are not used. There is no ongoing notification on iOS.
+Alarms use `InterruptionLevel.timeSensitive`, and since decision 25 the Runner target carries the matching
+entitlement. Critical alerts (which bypass the mute switch) need an Apple entitlement granted per app and are not
+used. The lock-screen countdown is a Live Activity (decision 25).
 
 ## 16. Desktop and web
 
-They compile and run the timer, tasks, XP and history. Web and Windows use `NoopAlarmService` (the in-app chime
-plays while the page is open). Linux and macOS use `flutter_local_notifications` on a best-effort basis.
+They compile and run the timer, tasks, XP and history. Web, Windows and Linux play the chime in-app only. macOS
+uses `flutter_local_notifications` on a best-effort basis, with the chimes bundled in its Runner target.
 
 ## 17. Widget tests and drift under fake async
 
@@ -183,3 +182,18 @@ at UTC+12 and beyond do not lose their daily bonus. Per-day counts use calendar 
 breakdown sheet gives new rungs real ids, never re-adds a rung the ladder already has, makes "Replace" the primary
 action for a task-level result, and cannot be applied twice. On the web the Claude call sends the
 `anthropic-dangerous-direct-browser-access` header.
+
+## 25. Live Activity and the Time Sensitive entitlement on iOS
+
+The lock-screen countdown is a WidgetKit Live Activity in its own extension target (`TimerActivityExtension`,
+iOS 16.2+), driven over a small method channel rather than a pub package, so there is no App Group plumbing and
+the attributes struct is the only shared code. The engine's `ShowOngoing` effect carries the run id (one
+activity per run, updated in place) and the end of the rest that follows an approach; the activity is marked
+stale at the end of the approach so the widget switches to the rest countdown by itself while the app is
+suspended. The Runner target also carries the Time Sensitive Notifications entitlement; with automatic signing
+Xcode registers it on the first build. Neither could be compiled here (no Xcode on Linux); both were written
+against the iOS 16.2 APIs and reviewed, and the first Mac build should be done from Xcode.
+
+## 26. macOS chimes
+
+The two WAV chimes are bundled in the macOS Runner target as well, so macOS notifications play the same sounds.

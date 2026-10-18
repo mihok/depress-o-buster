@@ -38,7 +38,7 @@ Useful commands:
 
 ```sh
 flutter analyze
-flutter test                       # 123 tests: timer engine, XP rules, levels, ladders, services, repositories, start flow
+flutter test                       # 126 tests: timer engine, XP rules, levels, ladders, services, repositories, start flow
 flutter build apk --debug          # verified: permissions, receivers, raw chimes and sqlite3 libs land in the APK
 flutter build apk --release        # verified: the chimes survive resource shrinking (res/raw/keep.xml)
 flutter build web                  # verified: compiles (alarms are in-app only on the web)
@@ -86,11 +86,12 @@ is restored on the next launch.
 * **Android**: exact alarms (`USE_EXACT_ALARM` / `SCHEDULE_EXACT_ALARM`), a live countdown in the notification
   shade, re-registration after reboot. Battery savers on some phones can still delay alarms; exempt the app if
   chimes arrive late. If exact alarms are not allowed the app falls back to inexact ones and tells you.
-* **iOS**: there is no background execution, so the notification is the alarm. It obeys the silent switch and
-  Focus; enabling the Time Sensitive Notifications capability in Xcode lets it through Focus. No lock-screen
-  countdown yet (a Live Activity would need a native extension).
-* **Desktop and web** compile and run; macOS alarms are best effort, and Linux, Windows and web play the chime
-  in-app only.
+* **iOS**: there is no background execution, so the two pre-scheduled notifications are the alarms. They are
+  Time Sensitive (entitlement included), so they get through Focus, and they obey the silent switch. A Live
+  Activity shows the countdown on the lock screen and in the Dynamic Island and switches from approach to rest
+  on its own. The widget extension needs a first build from Xcode on a Mac so signing can register it.
+* **Desktop and web** compile and run; macOS alarms are best effort with the chimes bundled, and Linux, Windows
+  and web play the chime in-app only.
 
 Details and a test checklist: `docs/PLATFORM_ALARMS.md`.
 
@@ -101,6 +102,7 @@ lib/domain      pure Dart: entities, TimerEngine (state machine), XP rules, leve
 lib/data        drift schema, repositories, seed data
 lib/services    alarms, sound, settings, Claude/mock breakdown, XP logging, timer controller, future seams
 lib/ui          Start (becomes the timer), Tasks, Progress, History, Settings
+ios/TimerActivity, ios/Shared   the Live Activity widget extension and its shared attributes
 test            unit tests for the domain and services, drift repository tests, widget tests for the start flow
 docs            DECISIONS.md, PLATFORM_ALARMS.md, FUTURE_DIRECTIONS.md
 PLAN.md         the plan this was built from

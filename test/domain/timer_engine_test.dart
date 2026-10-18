@@ -56,7 +56,13 @@ void main() {
         reason: 'the rest alarm is scheduled up front so it fires even if the app is dead',
       );
       expect(scheduled[1].target, target);
-      expect(single<ShowOngoing>(tr).endsAt, scheduled[0].at);
+      final ongoing = single<ShowOngoing>(tr);
+      expect(ongoing.endsAt, scheduled[0].at);
+      expect(ongoing.runId, 'run-1');
+      expect(ongoing.phase, Phase.approach);
+      expect(ongoing.restEndsAt, t0.add(const Duration(minutes: 35)), reason: 'a lock-screen view can switch to the rest by itself');
+      expect(ongoing.restPhase, Phase.rest);
+      expect(ongoing.pausedAt, isNull);
       expect(single<PlaySound>(tr).kind, SoundKind.start);
       expect(has<PhaseEnded>(tr), isFalse);
     });
@@ -129,6 +135,10 @@ void main() {
       final alarm = single<ScheduleAlarm>(tr);
       expect(alarm.phase, Phase.rest);
       expect(alarm.at, end.add(const Duration(minutes: 30)));
+      final ongoing = single<ShowOngoing>(tr);
+      expect(ongoing.phase, Phase.rest);
+      expect(ongoing.restEndsAt, isNull);
+      expect(ongoing.runId, 'run-1');
       final sound = single<PlaySound>(tr);
       expect(sound.kind, SoundKind.approachDone);
       expect(sound.alarmAlreadyFired, isTrue);
@@ -237,8 +247,12 @@ void main() {
       expect(tr.state.pausedRemaining, const Duration(minutes: 3));
       expect(tr.state.remaining(t0.add(const Duration(minutes: 10))), const Duration(minutes: 3));
       expect(has<CancelAlarms>(tr), isTrue);
-      expect(has<HideOngoing>(tr), isTrue);
       expect(has<ScheduleAlarm>(tr), isFalse);
+      final frozen = single<ShowOngoing>(tr);
+      expect(frozen.pausedAt, t0.add(const Duration(minutes: 2)), reason: 'the live countdown freezes instead of vanishing');
+      expect(frozen.endsAt, t0.add(const Duration(minutes: 5)));
+      expect(frozen.restEndsAt, isNull);
+      expect(has<HideOngoing>(tr), isFalse);
     });
 
     test('resume reschedules from now and excludes paused time from actual', () {
@@ -366,6 +380,7 @@ void main() {
       tr = start(tr.state, t0.add(const Duration(minutes: 31)), cfg: cfg, runId: 'run-2');
       expect(alarms(tr).last.phase, Phase.longRest, reason: 'pre-scheduled rest alarm knows it is the long one');
       expect(alarms(tr).last.at, t0.add(const Duration(minutes: 76)));
+      expect(single<ShowOngoing>(tr).restPhase, Phase.longRest, reason: 'the lock screen can label the long rest');
       tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 56))));
       expect(tr.state.phase, Phase.longRest);
       expect(tr.state.planned, const Duration(minutes: 20));
@@ -395,10 +410,11 @@ void main() {
   });
 
   group('autoStartRest off', () {
-    test('only the approach alarm is scheduled on start', () {
+    test('only the approach alarm is scheduled on start, and no rest end is announced', () {
       const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartRest: false);
       final tr = start(TimerState.idle(manual), t0, cfg: manual);
       expect(alarms(tr).map((a) => a.phase), [Phase.approach]);
+      expect(single<ShowOngoing>(tr).restEndsAt, isNull);
     });
 
     test('a rest started by hand honours the long-rest cycle', () {

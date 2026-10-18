@@ -62,9 +62,29 @@ class TimerEngine {
       const CancelAlarms(),
       ScheduleAlarm(phase: phase, at: endsAt, target: target),
       ..._restAlarmAfterApproach(next),
-      ShowOngoing(phase: phase, endsAt: endsAt, target: target),
+      _ongoingFor(next),
       const PlaySound(SoundKind.start, alarmAlreadyFired: false),
     ]);
+  }
+
+  /// The live countdown for the current phase. While paused the countdown
+  /// is frozen and no following rest is announced.
+  ShowOngoing _ongoingFor(TimerState s, {DateTime? pausedAt}) {
+    DateTime? restEndsAt;
+    Phase? restPhase;
+    if (pausedAt == null && s.phase == Phase.approach && s.config.autoStartRest) {
+      restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
+      restEndsAt = s.phaseEndsAt!.add(s.config.durationFor(restPhase));
+    }
+    return ShowOngoing(
+      runId: s.runId,
+      phase: s.phase,
+      endsAt: s.phaseEndsAt!,
+      target: s.target,
+      restEndsAt: restEndsAt,
+      restPhase: restPhase,
+      pausedAt: pausedAt,
+    );
   }
 
   /// The rest alarm is scheduled together with the approach alarm, so the
@@ -90,14 +110,13 @@ class TimerEngine {
   TimerTransition _pause(TimerState s, PauseTimer e) {
     if (s.status != TimerStatus.running) return TimerTransition(s, const []);
     final remaining = _clamp(s.phaseEndsAt!.difference(e.now));
-    return TimerTransition(
-      s.copyWith(
-        status: TimerStatus.paused,
-        pausedRemaining: remaining,
-        pausedAt: e.now,
-      ),
-      const [CancelAlarms(), HideOngoing()],
+    final next = s.copyWith(
+      status: TimerStatus.paused,
+      pausedRemaining: remaining,
+      pausedAt: e.now,
     );
+    // The live countdown stays, frozen, so the lock screen does not go blank.
+    return TimerTransition(next, [const CancelAlarms(), _ongoingFor(next, pausedAt: e.now)]);
   }
 
   TimerTransition _resume(TimerState s, ResumeTimer e) {
@@ -114,7 +133,7 @@ class TimerEngine {
     return TimerTransition(next, [
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
       ..._restAlarmAfterApproach(next),
-      ShowOngoing(phase: s.phase, endsAt: endsAt, target: s.target),
+      _ongoingFor(next),
     ]);
   }
 
@@ -142,7 +161,7 @@ class TimerEngine {
       const CancelAlarms(),
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
       ..._restAlarmAfterApproach(next),
-      ShowOngoing(phase: s.phase, endsAt: endsAt, target: s.target),
+      _ongoingFor(next),
     ]);
   }
 
@@ -240,7 +259,7 @@ class TimerEngine {
         ended,
         sound,
         ScheduleAlarm(phase: restPhase, at: restEndsAt, target: s.target),
-        ShowOngoing(phase: restPhase, endsAt: restEndsAt, target: s.target),
+        _ongoingFor(next),
       ]);
     }
 
@@ -553,11 +572,31 @@ final class CancelAlarms extends TimerEffect {
   const CancelAlarms();
 }
 
+/// Show (or update) the live countdown: an ongoing notification on Android,
+/// a Live Activity on iOS. [restEndsAt] is set during an approach when a
+/// rest will follow automatically, so a lock-screen view can switch to the
+/// rest on its own if the app is suspended when the approach ends.
 final class ShowOngoing extends TimerEffect {
-  const ShowOngoing({required this.phase, required this.endsAt, this.target});
+  const ShowOngoing({
+    required this.runId,
+    required this.phase,
+    required this.endsAt,
+    this.target,
+    this.restEndsAt,
+    this.restPhase,
+    this.pausedAt,
+  });
+  final String runId;
   final Phase phase;
   final DateTime endsAt;
   final ApproachTarget? target;
+  final DateTime? restEndsAt;
+
+  /// Which rest follows (rest or long rest), when [restEndsAt] is set.
+  final Phase? restPhase;
+
+  /// Set while paused: the countdown is frozen at `endsAt - pausedAt`.
+  final DateTime? pausedAt;
 }
 
 final class HideOngoing extends TimerEffect {
