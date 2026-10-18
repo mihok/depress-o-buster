@@ -39,8 +39,9 @@ Useful commands:
 ```sh
 flutter analyze
 flutter test                       # 119 tests: timer engine, XP rules, levels, ladders, services, repositories, start flow
-flutter build apk --debug
-flutter build ios --no-codesign
+flutter build apk --debug          # verified: permissions, receivers, raw chimes and sqlite3 libs land in the APK
+flutter build web                  # verified: compiles (alarms are in-app only on the web)
+flutter build ios --no-codesign    # needs macOS
 ```
 
 ## Using it
