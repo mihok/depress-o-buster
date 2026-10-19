@@ -195,6 +195,14 @@ void main() {
       settings: const AppSettings(approach: Duration(seconds: 30), rest: Duration(minutes: 1)),
     );
     await h.pump(tester);
+    // The hero illustration pushes the ratio button below the 600 px test
+    // viewport, and a lazy list does not build what is off screen.
+    await tester.scrollUntilVisible(
+      find.text('Start a 30 sec approach'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
     expect(find.text('Start a 30 sec approach'), findsOneWidget);
     await tester.tap(find.text('Start a 30 sec approach'));
     await tester.pump();

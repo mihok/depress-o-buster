@@ -6,6 +6,7 @@ import '../../domain/entities/entities.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../services/providers.dart';
 import '../tasks/rung_picker_sheet.dart';
+import '../widgets/illustration.dart';
 import '../widgets/mood_chips.dart';
 
 final daysSinceActiveProvider = FutureProvider.autoDispose<int?>((ref) {
@@ -60,6 +61,11 @@ class _StartViewState extends ConsumerState<StartView> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
+          AppIllustration(
+            daysSince != null && daysSince >= 3 ? Illustration.stoneDawn : Illustration.stoneStill,
+            height: 124,
+          ),
+          const SizedBox(height: 16),
           if (daysSince != null && daysSince >= 3) ...[
             Text('Good to see you.', style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),

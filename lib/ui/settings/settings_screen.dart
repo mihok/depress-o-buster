@@ -7,6 +7,7 @@ import '../../domain/entities/entities.dart';
 import '../../services/providers.dart';
 import '../../services/settings/settings_service.dart';
 import '../widgets/duration_picker_tile.dart';
+import '../widgets/illustration.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -244,10 +245,29 @@ class SettingsScreen extends ConsumerWidget {
           _Section('About'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Depress-o-buster is a timer with a very low floor. It is not a medical device and does not treat anything. '
-              'If things feel unsafe, please reach out to someone you trust or a local crisis line.',
-              style: theme.textTheme.bodySmall,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: const AppIllustration(Illustration.mark, height: 56),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Depress-o-buster', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        'A timer with a very low floor. It is not a medical device and does not treat anything. '
+                        'If things feel unsafe, please reach out to someone you trust or a local crisis line.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],

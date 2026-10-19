@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Start tab hero: one stone resting in still water, one faint ring, a short horizon. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
+  <line x1="182" y1="104" x2="222" y2="104" stroke="#8E9BC7" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.3"/>
+  <ellipse cx="110" cy="104" rx="58" ry="13" fill="none" stroke="#8E9BC7" stroke-width="2" stroke-opacity="0.35"/>
+  <path d="M 70 82 C 70 65.5, 89.5 55, 112.5 56 C 135.5 57, 150 67.5, 149.5 83 C 149 97, 134.5 104, 110.5 104 C 87 104, 70 97, 70 82 Z" fill="#8FB39A"/>
+</svg>

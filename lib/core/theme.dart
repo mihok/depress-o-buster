@@ -45,6 +45,8 @@ class AppTheme {
       visualDensity: VisualDensity.standard,
       splashFactory: InkSparkle.splashFactory,
     );
+    // Button text derives from labelLarge so the font family and spacing stay
+    // those of the typography, not a bare TextStyle with no family.
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final muted = isDark ? AppColors.darkMuted : AppColors.lightMuted;
     return base.copyWith(
@@ -75,7 +77,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(72, minTouchTarget),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
@@ -83,7 +85,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(72, minTouchTarget),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          textStyle: const TextStyle(fontSize: 17),
+          textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 17),
           side: BorderSide(color: muted.withValues(alpha: 0.5)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -91,7 +93,7 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           minimumSize: const Size(minTouchTarget, minTouchTarget),
-          textStyle: const TextStyle(fontSize: 16),
+          textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 16),
         ),
       ),
       listTileTheme: const ListTileThemeData(

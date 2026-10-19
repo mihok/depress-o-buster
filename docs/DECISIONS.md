@@ -197,3 +197,17 @@ against the iOS 16.2 APIs and reviewed, and the first Mac build should be done f
 ## 26. macOS chimes
 
 The two WAV chimes are bundled in the macOS Runner target as well, so macOS notifications play the same sounds.
+
+## 27. Imagery: stones and still water
+
+Every image in the app comes from one metaphor, written down in `docs/VISUALS.md`: a stone is one small step,
+still water is rest, and progress is a cairn that only ever grows. The in-app illustrations are small SVGs
+authored for the dark theme in six palette colours; a `ColorMapper` swaps them for the light theme at runtime, so
+each file exists once and a designer can replace any of them by name. The level badge (`Cairn`) and the one
+ripple that marks a first-ever interval, a new personal rung, or a level up (`RippleCelebration`) are drawn in
+code because they depend on state; the ripple is a single ring at 35 % opacity and is skipped under reduced
+motion, which is as loud as a celebration gets here. The brand mark is generated from one script into the app
+icon on every platform (adaptive, monochrome, and iOS 18 dark and tinted variants included), the native splash
+screens, and a monochrome Android notification glyph, so the launcher, the splash, the notification shade and the
+About screen all show the same stone. Screenshots in `docs/screenshots/` are rendered by a tagged widget test with
+the SDK's Roboto and icon fonts, so they can be refreshed without a device.

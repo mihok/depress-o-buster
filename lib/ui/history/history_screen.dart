@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
 import '../../services/providers.dart';
 import '../progress/progress_screen.dart';
+import '../widgets/illustration.dart';
 
 /// Every interval, grouped by day. Quiet days are simply absent.
 class HistoryScreen extends ConsumerWidget {
@@ -22,8 +23,12 @@ class HistoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
       body: sessions.isEmpty
-          ? Center(
-              child: Text('Nothing logged yet.', style: theme.textTheme.bodyMedium),
+          ? const Center(
+              child: EmptyState(
+                illustration: Illustration.waterQuiet,
+                title: 'Nothing logged yet.',
+                body: 'The first one counts double.',
+              ),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),

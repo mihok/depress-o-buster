@@ -8,6 +8,8 @@ import '../../domain/entities/entities.dart';
 import '../../domain/xp/levels.dart';
 import '../../services/providers.dart';
 import '../history/history_screen.dart';
+import '../widgets/cairn.dart';
+import '../widgets/illustration.dart';
 
 class ProgressStats {
   const ProgressStats({
@@ -62,8 +64,22 @@ class ProgressScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Level ${level.level}', style: theme.textTheme.bodySmall),
-                  Text(level.name, style: theme.textTheme.headlineMedium),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Level ${level.level}', style: theme.textTheme.bodySmall),
+                            Text(level.name, style: theme.textTheme.headlineMedium),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Cairn(level: level.level, size: const Size(72, 88)),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
@@ -144,7 +160,11 @@ class ProgressScreen extends ConsumerWidget {
             ],
           ),
           if (recent.isEmpty)
-            Text('Nothing logged yet. The first one counts double.', style: theme.textTheme.bodySmall),
+            const EmptyState(
+              illustration: Illustration.waterQuiet,
+              title: 'Nothing logged yet.',
+              body: 'The first one counts double.',
+            ),
           for (final s in recent.take(8)) SessionTile(session: s),
         ],
       ),

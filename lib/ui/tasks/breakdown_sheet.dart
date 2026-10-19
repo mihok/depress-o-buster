@@ -8,6 +8,7 @@ import '../../domain/entities/entities.dart';
 import '../../domain/ladder/ladder_logic.dart';
 import '../../services/breakdown/task_breakdown_service.dart';
 import '../../services/providers.dart';
+import '../widgets/illustration.dart';
 
 /// "Break this down smaller." Optional, async, never in the timer's way.
 Future<void> showBreakdownSheet(
@@ -169,11 +170,25 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
           controller: scroll,
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           children: [
-            Text('Break this down smaller', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(
-              rung == null ? widget.task.title : 'Smaller than: "${rung.text}"',
-              style: theme.textTheme.bodyMedium,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Break this down smaller', style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text(
+                        rung == null ? widget.task.title : 'Smaller than: "${rung.text}"',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const AppIllustration(Illustration.stoneSplit, height: 72),
+              ],
             ),
             const SizedBox(height: 16),
             TextField(
