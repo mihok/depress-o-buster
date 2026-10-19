@@ -101,7 +101,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'No rungs yet. Add one, or break the task down.',
+                        'No steps yet. Add one, or break the task down.',
                         style: theme.textTheme.bodyMedium,
                         textAlign: TextAlign.center,
                       ),
@@ -164,7 +164,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   const SizedBox(width: 12),
                   OutlinedButton(
                     onPressed: () async {
-                      final text = await _textDialog(context, title: 'New rung');
+                      final text = await _textDialog(context, title: 'New step');
                       if (text != null && text.trim().isNotEmpty) {
                         await repo.addStep(t.id, text.trim());
                       }
@@ -387,23 +387,50 @@ class _RemoveBackground extends StatelessWidget {
 }
 
 Future<String?> _textDialog(BuildContext context, {required String title, String initial = ''}) {
-  final controller = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
+    builder: (_) => _TextDialog(title: title, initial: initial),
+  );
+}
+
+/// One line of text. The controller belongs to the dialog's own State, so it
+/// outlives the exit transition (a field disposed in `whenComplete` is still
+/// drawn once more while the route leaves).
+class _TextDialog extends StatefulWidget {
+  const _TextDialog({required this.title, required this.initial});
+
+  final String title;
+  final String initial;
+
+  @override
+  State<_TextDialog> createState() => _TextDialogState();
+}
+
+class _TextDialogState extends State<_TextDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
       content: TextField(
-        controller: controller,
+        controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        onSubmitted: (v) => Navigator.pop(ctx, v),
+        onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Save')),
       ],
-    ),
-  ).whenComplete(controller.dispose);
+    );
+  }
 }
 
 /// Edit a step's text and suggested time. [usual] is the approach length

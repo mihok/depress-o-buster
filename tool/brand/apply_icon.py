@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Turns one painted icon PNG into every brand file the generators consume.
 
-    python3 tool/brand/apply_icon.py <source.png> [--background #0F1114] [--scale 0.78]
+    python3 tool/brand/apply_icon.py <source.png> [--splash <other.png>] [--background #F4F3EF] [--scale 0.78]
 
 The source is square-ish artwork of the stone on a transparent or plain white
-background (white is keyed out softly; edges are kept). It writes, under
-assets/brand/:
+background (white is keyed out softly; edges are kept). `--splash` names a
+second painting for the splash screens only (a stone at rest, say). It
+writes, under assets/brand/:
 
   mark.png              1024, the artwork on the background colour (iOS, legacy Android, web, macOS)
   mark_foreground.png   1024, transparent, artwork inside the adaptive safe zone (626 px circle)
@@ -83,12 +84,17 @@ def hex_rgb(s: str):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("source")
-    ap.add_argument("--background", default="#0F1114", help="icon background colour")
+    ap.add_argument("--splash", help="a different painting for the two splash files")
+    ap.add_argument("--background", default="#F4F3EF", help="icon background colour")
     ap.add_argument("--scale", type=float, default=0.78, help="artwork span of the full icon")
     args = ap.parse_args()
 
-    src = Image.open(args.source)
-    art = src.convert("RGBA") if has_real_alpha(src) else key_white(src)
+    def load(path: str) -> Image.Image:
+        im = Image.open(path)
+        return im.convert("RGBA") if has_real_alpha(im) else key_white(im)
+
+    art = load(args.source)
+    splash_art = load(args.splash) if args.splash else art
     bg = hex_rgb(args.background)
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -100,9 +106,9 @@ def main() -> int:
     fg = place(art, 1024, 0.58)
     fg.save(OUT / "mark_foreground.png")
     silhouette(fg).save(OUT / "mark_mono.png")
-    place(art, 640, args.scale).save(OUT / "splash_mark.png")
+    place(splash_art, 640, args.scale).save(OUT / "splash_mark.png")
     # Android 12: a 1152 canvas, artwork inside the centred 768 px circle.
-    place(art, 1152, 0.52).save(OUT / "splash_android12.png")
+    place(splash_art, 1152, 0.52).save(OUT / "splash_android12.png")
     for name in ["mark", "mark_transparent", "mark_foreground", "mark_mono", "splash_mark", "splash_android12"]:
         im = Image.open(OUT / f"{name}.png")
         print(f"{name}.png {im.size[0]}x{im.size[1]} {im.mode}")
