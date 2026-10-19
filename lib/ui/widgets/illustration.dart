@@ -17,8 +17,8 @@ enum Illustration {
   /// when a rest completes.
   stoneDawn('stone_dawn', 'A stone in still water with soft light on the horizon'),
 
-  /// A near stone and two further ones. The running approach.
-  pathAhead('path_ahead', 'Stepping stones leading away across still water'),
+  /// Three painted pebbles stepping away across water. The running approach.
+  pathAhead('path_ahead', 'Three pebbles stepping away across still water', raster: true),
 
   /// A thin moon over water, no stone. The running rest.
   restMoon('rest_moon', 'A thin moon over still water'),
@@ -45,14 +45,16 @@ enum Illustration {
   final String description;
   final String folder;
 
-  /// A PNG rather than an SVG (the icon is painted, not drawn in code).
+  /// A painted PNG rather than a vector. Paintings carry their own colours
+  /// (and an outline that reads on both backgrounds), so one file serves
+  /// both themes; see `tool/brand/prepare_illustration.py`.
   final bool raster;
 
   String get assetPath => 'assets/$folder/$file.${raster ? 'png' : 'svg'}';
 
-  /// The mark carries its own background, so it keeps the brand colours
-  /// whatever the theme. Everything else follows the theme.
-  bool get followsTheme => this != Illustration.mark;
+  /// Vector illustrations are recoloured for the light theme. Paintings and
+  /// the mark keep their own colours.
+  bool get followsTheme => !raster;
 }
 
 /// Swaps the dark-theme authoring palette for the light theme's.

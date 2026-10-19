@@ -36,8 +36,10 @@ the nearest thing is fully opaque, the farthest is around 0.25.
 
 ## In-app illustrations
 
-All live in `assets/illustrations/`, `viewBox="0 0 240 160"`, no fixed `width`/`height`
-attributes. The water line sits at **y = 104** unless the brief says otherwise; everything
+All live in `assets/illustrations/`. A painted one is a PNG prepared by
+`tool/brand/prepare_illustration.py` (trimmed, padded to 3:2, 1440 × 960, its own colours on
+both themes). The vector ones are SVGs with `viewBox="0 0 240 160"` and no fixed
+`width`/`height` attributes. The water line sits at **y = 104** unless the brief says otherwise; everything
 rests on or above it. Keep 12 px of air on every side. One subject, centred or slightly
 left of centre. At most three palette colours per file.
 
@@ -50,7 +52,7 @@ than the full width.
 |--------------------|----------------------------------------------------|---------------------------------------------------------------------|
 | `stone_still.svg`  | Start tab, above the one-tap button                | One stone, still water, one faint ring. Nothing is required of you. |
 | `stone_dawn.svg`   | Start tab after three or more quiet days; rest complete | The same stone with soft light low on the horizon. Good to see you. |
-| `path_ahead.svg`   | Running approach                                   | A near stone, two further ones fading away. Being near the thing.  |
+| `path_ahead.png`   | Running approach                                   | Three painted pebbles stepping away (from `assets/images/pebbles.png`). Being near the thing. |
 | `rest_moon.svg`    | Running rest                                       | A thin moon over still water, no stone. Rest is the method too.    |
 | `ripple_done.svg`  | Approach complete                                  | The stone with two rings spreading from it. That counted.          |
 | `stones_empty.svg` | Tasks tab with no tasks                            | Three small stones in a loose line going away. Pick one up.        |
