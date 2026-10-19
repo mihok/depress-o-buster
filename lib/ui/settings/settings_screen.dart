@@ -76,10 +76,23 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (d) => notifier.update((s) => s.copyWith(snoozeBy: d)),
           ),
           SwitchListTile(
-            title: const Text('Start rest automatically'),
-            subtitle: const Text('When the approach ends, rest begins on its own.'),
-            value: settings.autoStartRest,
-            onChanged: (v) => notifier.update((s) => s.copyWith(autoStartRest: v)),
+            title: const Text('Rest before the step'),
+            subtitle: const Text(
+              'Each round opens with the rest, so there is time to get ready. '
+              'The chime says when it is time for the step.',
+            ),
+            value: settings.restFirst,
+            onChanged: (v) => notifier.update((s) => s.copyWith(restFirst: v)),
+          ),
+          SwitchListTile(
+            title: Text(settings.restFirst ? 'Start the step automatically' : 'Start rest automatically'),
+            subtitle: Text(
+              settings.restFirst
+                  ? 'When the rest ends, the step begins on its own.'
+                  : 'When the approach ends, rest begins on its own.',
+            ),
+            value: settings.autoStartNext,
+            onChanged: (v) => notifier.update((s) => s.copyWith(autoStartNext: v)),
           ),
           _Section('Presets'),
           for (final p in presets)

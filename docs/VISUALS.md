@@ -107,7 +107,7 @@ Two images are drawn in code because they depend on state:
   lying flat; each level adds a stone until nine, then the cairn is complete and stays.
   It never shrinks, which matches the XP rules (the multiplier never resets).
 - **`RippleCelebration`** (`lib/ui/widgets/ripple_celebration.dart`): one slow ring that
-  spreads and fades behind the "+XP" line on a first-ever interval, a new personal rung,
+  spreads and fades behind the "+XP" line on a first-ever interval, a new personal step,
   or a level up. One ring, 1.8 s, never louder than 35 % opacity. It is skipped entirely
   when the platform asks for reduced motion.
 

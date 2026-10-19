@@ -53,16 +53,16 @@ abstract class AlarmService {
   Future<void> cancelScheduled();
 
   /// Show or update the live countdown for [runId]: an ongoing notification
-  /// on Android, a Live Activity on iOS. [restEndsAt] and [restPhase] describe
-  /// the rest that will follow an approach automatically, if any. While
-  /// [pausedAt] is set the countdown is frozen at `endsAt - pausedAt`.
+  /// on Android, a Live Activity on iOS. [nextEndsAt] and [nextPhase] describe
+  /// the phase that will follow automatically, if any. While [pausedAt] is
+  /// set the countdown is frozen at `endsAt - pausedAt`.
   Future<void> showOngoing({
     required String runId,
     required Phase phase,
     required DateTime endsAt,
     ApproachTarget? target,
-    DateTime? restEndsAt,
-    Phase? restPhase,
+    DateTime? nextEndsAt,
+    Phase? nextPhase,
     DateTime? pausedAt,
   });
 
@@ -108,8 +108,8 @@ class NoopAlarmService implements AlarmService {
     required Phase phase,
     required DateTime endsAt,
     ApproachTarget? target,
-    DateTime? restEndsAt,
-    Phase? restPhase,
+    DateTime? nextEndsAt,
+    Phase? nextPhase,
     DateTime? pausedAt,
   }) async {}
 

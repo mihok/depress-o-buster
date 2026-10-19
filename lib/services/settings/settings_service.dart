@@ -20,7 +20,8 @@ class AppSettings {
     this.longRest,
     this.cyclesBeforeLongRest = 0,
     this.snoozeBy = const Duration(minutes: 2),
-    this.autoStartRest = true,
+    this.restFirst = true,
+    this.autoStartNext = true,
     this.askMood = false,
     this.breakdownModel = 'claude-opus-5-5',
     this.preferClaude = true,
@@ -40,7 +41,12 @@ class AppSettings {
   final Duration? longRest;
   final int cyclesBeforeLongRest;
   final Duration snoozeBy;
-  final bool autoStartRest;
+
+  /// A round opens with the rest (time to get ready), then the step.
+  final bool restFirst;
+
+  /// The phase that follows starts on its own.
+  final bool autoStartNext;
 
   /// Offer the one-word mood prompt before and after a session.
   final bool askMood;
@@ -60,7 +66,8 @@ class AppSettings {
     longRest: longRest,
     cyclesBeforeLongRest: cyclesBeforeLongRest,
     snoozeBy: snoozeBy,
-    autoStartRest: autoStartRest,
+    restFirst: restFirst,
+    autoStartNext: autoStartNext,
   );
 
   AppSettings copyWith({
@@ -74,7 +81,8 @@ class AppSettings {
     bool clearLongRest = false,
     int? cyclesBeforeLongRest,
     Duration? snoozeBy,
-    bool? autoStartRest,
+    bool? restFirst,
+    bool? autoStartNext,
     bool? askMood,
     String? breakdownModel,
     bool? preferClaude,
@@ -94,7 +102,8 @@ class AppSettings {
       longRest: clearLongRest ? null : (longRest ?? this.longRest),
       cyclesBeforeLongRest: cyclesBeforeLongRest ?? this.cyclesBeforeLongRest,
       snoozeBy: snoozeBy ?? this.snoozeBy,
-      autoStartRest: autoStartRest ?? this.autoStartRest,
+      restFirst: restFirst ?? this.restFirst,
+      autoStartNext: autoStartNext ?? this.autoStartNext,
       askMood: askMood ?? this.askMood,
       breakdownModel: breakdownModel ?? this.breakdownModel,
       preferClaude: preferClaude ?? this.preferClaude,
@@ -116,7 +125,8 @@ class AppSettings {
     'longRestMs': longRest?.inMilliseconds,
     'cyclesBeforeLongRest': cyclesBeforeLongRest,
     'snoozeByMs': snoozeBy.inMilliseconds,
-    'autoStartRest': autoStartRest,
+    'restFirst': restFirst,
+    'autoStartNext': autoStartNext,
     'askMood': askMood,
     'breakdownModel': breakdownModel,
     'preferClaude': preferClaude,
@@ -144,7 +154,8 @@ class AppSettings {
           : null,
       cyclesBeforeLongRest: (j['cyclesBeforeLongRest'] as num?)?.toInt() ?? 0,
       snoozeBy: ms('snoozeByMs', d.snoozeBy),
-      autoStartRest: j['autoStartRest'] as bool? ?? d.autoStartRest,
+      restFirst: j['restFirst'] as bool? ?? d.restFirst,
+      autoStartNext: j['autoStartNext'] as bool? ?? j['autoStartRest'] as bool? ?? d.autoStartNext,
       askMood: j['askMood'] as bool? ?? d.askMood,
       breakdownModel: j['breakdownModel'] as String? ?? d.breakdownModel,
       preferClaude: j['preferClaude'] as bool? ?? d.preferClaude,

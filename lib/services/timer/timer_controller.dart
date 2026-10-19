@@ -53,18 +53,22 @@ class TimerController extends Notifier<TimerState> {
   SettingsService get _store => ref.read(settingsServiceProvider);
   AppSettings get _settings => ref.read(settingsProvider);
 
-  /// One tap. The system notification prompt is shown on the very first
-  /// start only; because effects are serialised, the first alarm is
-  /// scheduled after the answer, and a refusal just leaves a calm hint.
+  /// One tap starts a round: the rest first (time to get ready), then the
+  /// step, or the other way round when the setting says so. The system
+  /// notification prompt is shown on the very first start only; because
+  /// effects are serialised, the first alarm is scheduled after the answer,
+  /// and a refusal just leaves a calm hint.
   Future<void> start({
     TimerConfig? config,
     ApproachTarget? target,
     String? moodBefore,
-    Phase phase = Phase.approach,
+    Phase? phase,
     String? runId,
   }) async {
     if (state.isActive) return;
-    _moodBefore = moodBefore;
+    // The mood belongs to the round; a phase started by hand inside the
+    // round (the step after its rest) keeps it.
+    if (phase == null) _moodBefore = moodBefore;
     if (_alarms.isSupported && !_settings.notificationPermissionAsked) {
       _enqueue(() => _alarms.ensurePermissions());
       unawaited(
@@ -84,10 +88,19 @@ class TimerController extends Notifier<TimerState> {
     );
   }
 
-  /// With "start rest automatically" off: begin the rest that belongs to the
-  /// approach that just finished (same run, same target, long rest honoured).
+  /// With automatic start off: begin the rest that belongs to the approach
+  /// that just finished (same run, same target, long rest honoured).
   Future<void> startRest() => start(
     phase: Phase.rest,
+    config: state.config,
+    target: state.target,
+    runId: state.runId.isEmpty ? null : state.runId,
+  );
+
+  /// With automatic start off, rest first: begin the step the rest just
+  /// prepared for (same run, same target).
+  Future<void> startApproach() => start(
+    phase: Phase.approach,
     config: state.config,
     target: state.target,
     runId: state.runId.isEmpty ? null : state.runId,
@@ -97,7 +110,7 @@ class TimerController extends Notifier<TimerState> {
 
   void resume() => _dispatch(ResumeTimer(clock.now()));
 
-  void snooze({Duration? by}) => _dispatch(SnoozeApproach(clock.now(), by: by));
+  void snooze({Duration? by}) => _dispatch(Snooze(clock.now(), by: by));
 
   bool get _settling =>
       _lastTransitionAt != null && clock.now().difference(_lastTransitionAt!) < settleWindow;
@@ -211,8 +224,8 @@ class TimerController extends Notifier<TimerState> {
               phase: effect.phase,
               endsAt: effect.endsAt,
               target: effect.target,
-              restEndsAt: effect.restEndsAt,
-              restPhase: effect.restPhase,
+              nextEndsAt: effect.nextEndsAt,
+              nextPhase: effect.nextPhase,
               pausedAt: effect.pausedAt,
             );
           case HideOngoing():

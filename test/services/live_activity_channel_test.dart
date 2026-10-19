@@ -22,8 +22,8 @@ void main() {
       phase: Phase.approach,
       title: 'Sit up for 2 minutes',
       endsAt: endsAt,
-      restEndsAt: endsAt.add(const Duration(minutes: 10)),
-      restPhase: Phase.longRest,
+      nextEndsAt: endsAt.add(const Duration(minutes: 10)),
+      nextPhase: Phase.longRest,
     );
     expect(ok, isTrue);
     expect(seen!.method, 'show');
@@ -32,8 +32,8 @@ void main() {
     expect(args['phase'], 'approach');
     expect(args['title'], 'Sit up for 2 minutes');
     expect(args['endsAtMs'], endsAt.millisecondsSinceEpoch);
-    expect(args['restEndsAtMs'], endsAt.millisecondsSinceEpoch + 600000);
-    expect(args['restPhase'], 'longRest');
+    expect(args['nextEndsAtMs'], endsAt.millisecondsSinceEpoch + 600000);
+    expect(args['nextPhase'], 'longRest');
     expect(args['pausedAtMs'], isNull);
   });
 

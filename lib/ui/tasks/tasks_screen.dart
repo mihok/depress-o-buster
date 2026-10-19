@@ -25,7 +25,7 @@ class TasksScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
               child: Text(
-                'Each task has a ladder from near-zero effort to the whole thing. Tap a task to see its rungs.',
+                'Each task has a ladder of steps from near-zero effort to the whole thing. Tap a task to see its steps.',
                 style: theme.textTheme.bodySmall,
               ),
             ),
@@ -74,7 +74,7 @@ class _TaskTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Text(task.title),
-        subtitle: count == null ? null : Text('$count rungs'),
+        subtitle: count == null ? null : Text('$count steps'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => TaskDetailScreen(taskId: task.id)),

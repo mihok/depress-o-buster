@@ -57,8 +57,8 @@ class _RecordingAlarmService extends NoopAlarmService {
     required Phase phase,
     required DateTime endsAt,
     ApproachTarget? target,
-    DateTime? restEndsAt,
-    Phase? restPhase,
+    DateTime? nextEndsAt,
+    Phase? nextPhase,
     DateTime? pausedAt,
   }) async => calls.add('ongoing:${phase.name}');
 
@@ -120,31 +120,94 @@ void main() {
   // Each test opens its own in-memory database.
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
-  testWidgets('open the app, one tap, a 2-minute approach is running with an alarm', (tester) async {
+  testWidgets('open the app, one tap: the rest to get ready runs first, then the step', (tester) async {
     final h = await _harness();
     await h.pump(tester);
 
     expect(find.text('Sit up for 2 minutes'), findsOneWidget);
-    expect(find.text('then rest for 10 min'), findsOneWidget);
+    expect(find.text('after 10 min of rest to get ready'), findsOneWidget);
 
     await tester.tap(find.text('Sit up for 2 minutes'));
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Approach'), findsOneWidget);
-    expect(find.text('2:00'), findsOneWidget);
-    expect(find.text('Sit up for 2 minutes'), findsOneWidget, reason: 'the rung is shown as the target');
-    expect(h.alarms.calls, containsAllInOrder(['cancel', 'schedule:approach', 'ongoing:approach']));
+    // The round opens with the rest; the step's alarm is already scheduled.
+    expect(find.text('Rest'), findsOneWidget);
+    expect(find.text('10:00'), findsOneWidget);
+    expect(find.text('Sit up for 2 minutes'), findsOneWidget, reason: 'the step is shown as what the rest prepares for');
+    expect(find.text('Time to get ready. The chime says when the step starts.'), findsOneWidget);
+    expect(h.alarms.calls, containsAllInOrder(['cancel', 'schedule:rest', 'schedule:approach', 'ongoing:rest']));
 
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('1:59'), findsOneWidget);
+    expect(find.text('9:59'), findsOneWidget);
 
-    // Snooze extends without judgement.
+    // More time to get ready, without judgement.
     await tester.tap(find.text('+2 min'));
     await tester.pump();
-    expect(find.text('3:59'), findsOneWidget);
+    expect(find.text('11:59'), findsOneWidget);
 
-    // Finish early: logged as completed, rest starts on its own.
+    // Ready now: the step starts at once; the rest is logged as completed.
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.text('Start the step'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Approach'), findsOneWidget);
+    expect(find.text('2:00'), findsOneWidget);
+    expect(h.alarms.calls.last, 'ongoing:approach');
+    expect(find.textContaining('+'), findsWidgets, reason: 'XP feedback line for the rest');
+    expect(find.textContaining('Your first one'), findsOneWidget);
+    // The second tap of a double tap lands on "Done early": ignored.
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.tap(find.text('Done early'));
+    await tester.pump();
+    expect(find.text('Approach'), findsOneWidget, reason: 'taps settle for 700 ms after a phase change');
+
+    // Finish the step early: completed, and the round is done.
+    await tester.pump(const Duration(seconds: 30));
+    await tester.tap(find.text('Done early'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Approach complete.'), findsOneWidget);
+    expect(find.text('Another round'), findsOneWidget);
+
+    await tester.tap(find.text('Done for now'));
+    await tester.pump();
+    expect(find.text('Sit up for 2 minutes'), findsOneWidget);
+
+    final sessions = await h.read(() => SessionRepository(h.db).watchRecent().first, tester);
+    expect(sessions.map((s) => s.phase), [Phase.approach, Phase.rest]);
+    expect(sessions.last.outcome, SessionOutcome.snoozed, reason: 'the extended rest');
+    expect(sessions.first.outcome, SessionOutcome.completed);
+    expect(sessions.first.rungText, 'Sit up for 2 minutes');
+    expect(sessions.first.rungId, isNotNull, reason: 'the seeded step is matched exactly');
+    expect(sessions.first.taskTitle, 'Just sit up');
+    expect(sessions.first.xpEarned, greaterThan(0));
+    expect(sessions.first.runId, sessions.last.runId, reason: 'rest and step belong to one round');
+    final progress = await h.read(() => ProgressRepository(h.db).get(), tester);
+    expect(progress.totalXp, sessions.fold<int>(0, (sum, s) => sum + s.xpEarned));
+    expect(progress.totalCompletedIntervals, 2);
+    expect(
+      h.sound.played,
+      [SoundKind.restDone, SoundKind.approachDone],
+      reason: 'manual finishes chime in-app',
+    );
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('the classic order is one switch away: approach first, then rest', (tester) async {
+    final h = await _harness(settings: const AppSettings(restFirst: false));
+    await h.pump(tester);
+    expect(find.text('then rest for 10 min'), findsOneWidget);
+    await tester.tap(find.text('Sit up for 2 minutes'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Approach'), findsOneWidget);
+    expect(find.text('2:00'), findsOneWidget);
+    expect(h.alarms.calls, containsAllInOrder(['cancel', 'schedule:approach', 'schedule:rest', 'ongoing:approach']));
+    await tester.pump(const Duration(seconds: 1));
     await tester.tap(find.text('Done early'));
     await tester.pump();
     await tester.pump();
@@ -156,37 +219,14 @@ void main() {
     await tester.tap(find.text('End rest early'));
     await tester.pump();
     expect(find.text('Rest'), findsOneWidget, reason: 'rest is sacred; taps settle for 700 ms');
-    expect(h.alarms.calls.last, 'ongoing:rest');
-    expect(find.textContaining('+'), findsWidgets, reason: 'XP feedback line');
-    expect(find.textContaining('Your first one'), findsOneWidget);
-
-    // Rest is counted down with the same respect.
     await tester.pump(const Duration(minutes: 10));
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest complete.'), findsOneWidget);
-    expect(find.text('Another round'), findsOneWidget);
-
     await tester.tap(find.text('Done for now'));
     await tester.pump();
-    expect(find.text('Sit up for 2 minutes'), findsOneWidget);
-
     final sessions = await h.read(() => SessionRepository(h.db).watchRecent().first, tester);
     expect(sessions.map((s) => s.phase), [Phase.rest, Phase.approach]);
-    expect(sessions.last.outcome, SessionOutcome.snoozed);
-    expect(sessions.last.rungText, 'Sit up for 2 minutes');
-    expect(sessions.last.rungId, isNotNull, reason: 'the seeded rung is matched exactly');
-    expect(sessions.last.taskTitle, 'Just sit up');
-    expect(sessions.last.xpEarned, greaterThan(0));
-    final progress = await h.read(() => ProgressRepository(h.db).get(), tester);
-    expect(progress.totalXp, sessions.fold<int>(0, (sum, s) => sum + s.xpEarned));
-    expect(progress.totalCompletedIntervals, 2);
-    expect(
-      h.sound.played,
-      [SoundKind.approachDone],
-      reason: 'a manual finish chimes in-app; the automatic rest end is left to the OS alarm',
-    );
-
     await h.tearDown(tester);
   });
 
@@ -198,17 +238,12 @@ void main() {
     // The hero illustration pushes the ratio button below the 600 px test
     // viewport, and a lazy list does not build what is off screen.
     await tester.scrollUntilVisible(
-      find.text('Start a 30 sec approach'),
+      find.text('Rest 1 min, then a 30 sec approach'),
       100,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pump();
-    expect(find.text('Start a 30 sec approach'), findsOneWidget);
-    await tester.tap(find.text('Start a 30 sec approach'));
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('0:30'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 30));
+    await tester.tap(find.text('Rest 1 min, then a 30 sec approach'));
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest'), findsOneWidget);
@@ -216,7 +251,12 @@ void main() {
     await tester.pump(const Duration(minutes: 1));
     await tester.pump();
     await tester.pump();
-    expect(find.text('Rest complete.'), findsOneWidget);
+    expect(find.text('Approach'), findsOneWidget);
+    expect(find.text('0:30'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 30));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Approach complete.'), findsOneWidget);
     await tester.tap(find.text('Done for now'));
     await tester.pump();
     await h.tearDown(tester);
@@ -240,6 +280,7 @@ void main() {
     final sessions = await h.read(() => SessionRepository(h.db).watchRecent().first, tester);
     expect(sessions.single.outcome, SessionOutcome.abandoned);
     expect(sessions.single.actual, const Duration(seconds: 20));
+    expect(sessions.single.phase, Phase.rest, reason: 'stopped during the rest to get ready');
     expect(sessions.single.xpEarned, greaterThan(0));
     expect(find.textContaining('missed'), findsNothing);
     expect(find.textContaining('broken'), findsNothing);
@@ -253,7 +294,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(seconds: 10));
-    expect(find.text('1:50'), findsOneWidget);
+    expect(find.text('9:50'), findsOneWidget);
 
     // Simulate process death: new widget tree, same storage.
     await tester.pumpWidget(const SizedBox());
@@ -262,8 +303,8 @@ void main() {
     await h.pump(tester);
     await tester.pump();
     await tester.pump();
-    expect(find.text('Approach'), findsOneWidget);
-    expect(find.text('1:45'), findsOneWidget);
+    expect(find.text('Rest'), findsOneWidget);
+    expect(find.text('9:45'), findsOneWidget);
 
     await tester.tap(find.text('Stop'));
     await tester.pumpAndSettle();
@@ -273,7 +314,7 @@ void main() {
     await h.tearDown(tester);
   });
 
-  testWidgets('tasks tab lists the starter ladders and a rung can be started', (tester) async {
+  testWidgets('tasks tab lists the starter ladders and a step can be started', (tester) async {
     final h = await _harness();
     await h.pump(tester);
     await tester.tap(find.text('Tasks'));
@@ -294,8 +335,8 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(find.text('Approach'), findsOneWidget);
-    expect(find.textContaining(RegExp(r'^(5:00|4:59)$')), findsOneWidget);
+    expect(find.text('Rest'), findsOneWidget, reason: 'the rest to get ready comes first');
+    expect(find.textContaining(RegExp(r'^(10:00|9:59)$')), findsOneWidget);
     expect(find.text('Sit next to the pile for 5 minutes'), findsOneWidget);
     await tester.tap(find.text('Stop'));
     await tester.pumpAndSettle();

@@ -31,8 +31,8 @@ class LiveActivityChannel {
     required Phase phase,
     required String title,
     required DateTime endsAt,
-    DateTime? restEndsAt,
-    Phase? restPhase,
+    DateTime? nextEndsAt,
+    Phase? nextPhase,
     DateTime? pausedAt,
   }) async {
     try {
@@ -41,8 +41,8 @@ class LiveActivityChannel {
             'phase': phase.name,
             'title': title,
             'endsAtMs': endsAt.toUtc().millisecondsSinceEpoch,
-            'restEndsAtMs': restEndsAt?.toUtc().millisecondsSinceEpoch,
-            'restPhase': restPhase?.name,
+            'nextEndsAtMs': nextEndsAt?.toUtc().millisecondsSinceEpoch,
+            'nextPhase': nextPhase?.name,
             'pausedAtMs': pausedAt?.toUtc().millisecondsSinceEpoch,
           }) ??
           false;

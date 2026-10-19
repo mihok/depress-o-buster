@@ -45,6 +45,16 @@ class TimerView extends ConsumerWidget {
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleMedium,
                       ),
+                    if (!finished && state.isPreparing) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        state.config.autoStartNext
+                            ? 'Time to get ready. The chime says when the step starts.'
+                            : 'Time to get ready. Start the step whenever you are.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     if (!finished) ...[
                       AppIllustration(
@@ -80,7 +90,9 @@ class TimerView extends ConsumerWidget {
                     ] else
                       _FinishedPanel(state: state),
                     const SizedBox(height: 12),
-                    if (state.phase.isRest || finished) const LoggedFeedback(),
+                    // Feedback for the phase that just ended in this round: the
+                    // rest's XP during the step, the step's XP during its rest.
+                    LoggedFeedback(runId: state.runId),
                     const _AlarmHints(),
                   ],
                 ),
@@ -114,10 +126,15 @@ class _FinishedPanelState extends ConsumerState<_FinishedPanel> {
     final theme = Theme.of(context);
     final askMood = ref.watch(settingsProvider.select((s) => s.askMood));
     final lastApproach = ref.watch(lastApproachLoggedProvider);
+    final preparing = widget.state.isPreparing;
     return Column(
       children: [
         AppIllustration(
-          widget.state.phase.isRest ? Illustration.stoneDawn : Illustration.rippleDone,
+          preparing
+              ? Illustration.pathAhead
+              : widget.state.phase.isRest
+                  ? Illustration.stoneDawn
+                  : Illustration.rippleDone,
           height: 112,
         ),
         const SizedBox(height: 20),
@@ -127,7 +144,10 @@ class _FinishedPanelState extends ConsumerState<_FinishedPanel> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
-        Text('Ready when you are.', style: theme.textTheme.bodySmall),
+        Text(
+          preparing ? 'The step is next, whenever you are ready.' : 'Ready when you are.',
+          style: theme.textTheme.bodySmall,
+        ),
         if (askMood && lastApproach != null) ...[
           const SizedBox(height: 20),
           MoodChips(
@@ -276,6 +296,38 @@ class _Controls extends ConsumerWidget {
             ),
           ],
         );
+      case TimerStatus.running when state.isPreparing:
+        // The rest before the step: more time is always allowed, and the
+        // step can start the moment the person feels ready.
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => controller.snooze(),
+                    child: Text('+${formatWords(snoozeBy)}'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: controller.finishEarly,
+                    child: const Text('Start the step'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextButton(onPressed: controller.pause, child: const Text('Pause'))),
+                const SizedBox(width: 12),
+                Expanded(child: TextButton(onPressed: confirmStop, child: const Text('Stop'))),
+              ],
+            ),
+          ],
+        );
       case TimerStatus.running:
         return Column(
           children: [
@@ -317,8 +369,17 @@ class _Controls extends ConsumerWidget {
             ),
           ],
         );
-      case TimerStatus.finished when state.isApproach:
-        // "Start rest automatically" is off: the rest is started by hand.
+      case TimerStatus.finished when state.isPreparing:
+        // Automatic start is off: the step is started by hand after its rest.
+        return Column(
+          children: [
+            FilledButton(onPressed: controller.startApproach, child: const Text('Start the step')),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: controller.reset, child: const Text('Done for now')),
+          ],
+        );
+      case TimerStatus.finished when state.isApproach && !state.config.restFirst:
+        // Automatic start is off: the rest is started by hand.
         return Column(
           children: [
             FilledButton(

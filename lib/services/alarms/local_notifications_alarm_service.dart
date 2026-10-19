@@ -262,8 +262,8 @@ class LocalNotificationsAlarmService implements AlarmService {
     required Phase phase,
     required DateTime endsAt,
     ApproachTarget? target,
-    DateTime? restEndsAt,
-    Phase? restPhase,
+    DateTime? nextEndsAt,
+    Phase? nextPhase,
     DateTime? pausedAt,
   }) async {
     if (!kIsWeb && Platform.isIOS) {
@@ -272,8 +272,8 @@ class LocalNotificationsAlarmService implements AlarmService {
         phase: phase,
         title: target == null || target.isEmpty ? phase.label : target.description,
         endsAt: endsAt,
-        restEndsAt: restEndsAt,
-        restPhase: restPhase,
+        nextEndsAt: nextEndsAt,
+        nextPhase: nextPhase,
         pausedAt: pausedAt,
       );
       return;
@@ -282,9 +282,12 @@ class LocalNotificationsAlarmService implements AlarmService {
     final android = _android;
     if (android == null) return;
     final isApproach = phase == Phase.approach;
+    final hasTarget = target != null && !target.isEmpty;
     final title = isApproach
-        ? (target == null || target.isEmpty ? 'Approach' : 'Approach: ${target.description}')
-        : phase.label;
+        ? (hasTarget ? 'Approach: ${target.description}' : 'Approach')
+        : (nextPhase == Phase.approach && hasTarget
+            ? '${phase.label} before: ${target.description}'
+            : phase.label);
     final paused = pausedAt != null;
     final body = paused
         ? 'Paused, ${_short(endsAt.difference(pausedAt))} left'

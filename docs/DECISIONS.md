@@ -211,3 +211,20 @@ icon on every platform (adaptive, monochrome, and iOS 18 dark and tinted variant
 screens, and a monochrome Android notification glyph, so the launcher, the splash, the notification shade and the
 About screen all show the same stone. Screenshots in `docs/screenshots/` are rendered by a tagged widget test with
 the SDK's Roboto and icon fonts, so they can be refreshed without a device.
+
+## 28. The rest comes first
+
+Planning a step and having to do it the moment it is planned is itself a blocker on a low day. A round now opens
+with the rest (time to get ready) and the step follows it, by default; "Rest before the step" in Settings turns
+the classic approach-then-rest order back on. The engine expresses both as one rule, `followingPhase`: the phase
+that begins on its own when the current one ends (the step after its rest, or the rest after its approach, when
+automatic start is on), and that is the phase whose alarm is pre-scheduled and whose countdown the lock screen
+and the Live Activity switch to if the app is suspended at the hand-over. The rest before a step can be extended
+("+2 min", more time to get ready) and ended early ("Start the step"), both logged as completed; the long rest
+opens a round only after enough steps are done, never the first. Timers saved before this change are read back
+as approach first, so a restart cannot flip the order of a round that was already running.
+
+## 29. Steps, not rungs
+
+The items of a ladder are called steps everywhere a person reads them. The code keeps `rungId`, `rungPosition`
+and `rungText` on sessions and targets, since renaming stored columns buys nothing.

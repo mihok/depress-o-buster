@@ -19,7 +19,7 @@ class TimerEngine {
       Tick e => _tick(state, e),
       PauseTimer e => _pause(state, e),
       ResumeTimer e => _resume(state, e),
-      SnoozeApproach e => _snooze(state, e),
+      Snooze e => _snooze(state, e),
       FinishEarly e => _finishEarly(state, e),
       AbandonTimer e => _abandon(state, e),
       ResetTimer e => _reset(state, e),
@@ -33,15 +33,20 @@ class TimerEngine {
     }
     final config = e.config ?? s.config;
     final cycleIndex = s.status == TimerStatus.finished ? s.cycleIndex : 0;
-    // A rest started by hand (autoStartRest off) still honours the long rest.
+    // No phase: a new round, which opens with the rest when the config says
+    // so (time to get ready) and with the approach otherwise. A rest started
+    // by hand (autoStartNext off) still honours the long rest.
     final phase = switch (e.phase) {
+      null => config.restFirst ? restPhaseFor(config, cycleIndex) : Phase.approach,
       Phase.approach => Phase.approach,
       Phase.longRest => Phase.longRest,
       Phase.rest => restPhaseFor(config, cycleIndex),
     };
     final planned = config.durationFor(phase);
     final endsAt = e.now.add(planned);
-    final target = phase == Phase.approach ? e.target : (e.target ?? s.target);
+    // A new round or an explicit approach takes the target as given; a rest
+    // started by hand after an approach keeps that approach's target.
+    final target = e.phase == null || e.phase == Phase.approach ? e.target : (e.target ?? s.target);
     final next = s.copyWith(
       status: TimerStatus.running,
       phase: phase,
@@ -61,41 +66,58 @@ class TimerEngine {
     return TimerTransition(next, [
       const CancelAlarms(),
       ScheduleAlarm(phase: phase, at: endsAt, target: target),
-      ..._restAlarmAfterApproach(next),
+      ..._followingAlarm(next),
       _ongoingFor(next),
       const PlaySound(SoundKind.start, alarmAlreadyFired: false),
     ]);
   }
 
   /// The live countdown for the current phase. While paused the countdown
-  /// is frozen and no following rest is announced.
+  /// is frozen and no following phase is announced.
   ShowOngoing _ongoingFor(TimerState s, {DateTime? pausedAt}) {
-    DateTime? restEndsAt;
-    Phase? restPhase;
-    if (pausedAt == null && s.phase == Phase.approach && s.config.autoStartRest) {
-      restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
-      restEndsAt = s.phaseEndsAt!.add(s.config.durationFor(restPhase));
+    DateTime? nextEndsAt;
+    Phase? nextPhase;
+    if (pausedAt == null) {
+      nextPhase = followingPhase(s);
+      if (nextPhase != null) {
+        nextEndsAt = s.phaseEndsAt!.add(s.config.durationFor(nextPhase));
+      }
     }
     return ShowOngoing(
       runId: s.runId,
       phase: s.phase,
       endsAt: s.phaseEndsAt!,
       target: s.target,
-      restEndsAt: restEndsAt,
-      restPhase: restPhase,
+      nextEndsAt: nextEndsAt,
+      nextPhase: nextPhase,
       pausedAt: pausedAt,
     );
   }
 
-  /// The rest alarm is scheduled together with the approach alarm, so the
-  /// end of the rest is signalled even when the app process is suspended or
-  /// dead at the moment the approach ends. Re-scheduling the same alarm id
-  /// later (when the approach actually ends) is harmless.
-  List<TimerEffect> _restAlarmAfterApproach(TimerState s) {
-    if (s.phase != Phase.approach || !s.config.autoStartRest) return const [];
-    final restPhase = restPhaseFor(s.config, s.cycleIndex + 1);
-    final at = s.phaseEndsAt!.add(s.config.durationFor(restPhase));
-    return [ScheduleAlarm(phase: restPhase, at: at, target: s.target)];
+  /// The alarm for the phase that follows automatically is scheduled
+  /// together with the current phase's alarm, so its end is signalled even
+  /// when the app process is suspended or dead at the moment the current
+  /// phase ends. Re-scheduling the same alarm id later (when the phase
+  /// actually ends) is harmless.
+  List<TimerEffect> _followingAlarm(TimerState s) {
+    final next = followingPhase(s);
+    if (next == null) return const [];
+    final at = s.phaseEndsAt!.add(s.config.durationFor(next));
+    return [ScheduleAlarm(phase: next, at: at, target: s.target)];
+  }
+
+  /// The phase that begins on its own when the current one ends, or null
+  /// when the run ends there (or the next phase is started by hand).
+  ///
+  /// Rest first: a rest is followed by the approach it prepares for, and the
+  /// approach closes the round. Approach first: the approach is followed by
+  /// its rest, which closes the round.
+  static Phase? followingPhase(TimerState s) {
+    if (!s.config.autoStartNext) return null;
+    if (s.phase == Phase.approach) {
+      return s.config.restFirst ? null : restPhaseFor(s.config, s.cycleIndex + 1);
+    }
+    return s.config.restFirst ? Phase.approach : null;
   }
 
   TimerTransition _tick(TimerState s, Tick e) {
@@ -132,13 +154,16 @@ class TimerEngine {
     );
     return TimerTransition(next, [
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
-      ..._restAlarmAfterApproach(next),
+      ..._followingAlarm(next),
       _ongoingFor(next),
     ]);
   }
 
-  TimerTransition _snooze(TimerState s, SnoozeApproach e) {
-    if (s.phase != Phase.approach) return TimerTransition(s, const []);
+  /// Extend the current phase: the approach, or the rest that prepares for
+  /// it ("I need a little longer to get ready"). A rest that follows an
+  /// approach is not extended this way; it is simply rest.
+  TimerTransition _snooze(TimerState s, Snooze e) {
+    if (s.phase != Phase.approach && !s.config.restFirst) return TimerTransition(s, const []);
     final by = e.by ?? s.config.snoozeBy;
     if (s.status == TimerStatus.paused) {
       return TimerTransition(
@@ -160,7 +185,7 @@ class TimerEngine {
     return TimerTransition(next, [
       const CancelAlarms(),
       ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
-      ..._restAlarmAfterApproach(next),
+      ..._followingAlarm(next),
       _ongoingFor(next),
     ]);
   }
@@ -238,15 +263,15 @@ class TimerEngine {
       );
     }
 
-    if (isApproach && s.config.autoStartRest) {
-      final restPhase = restPhaseFor(s.config, cycleIndex);
-      final planned = s.config.durationFor(restPhase);
-      final restEndsAt = endedAt.add(planned);
+    final following = followingPhase(s);
+    if (following != null) {
+      final planned = s.config.durationFor(following);
+      final nextEndsAt = endedAt.add(planned);
       final next = s.copyWith(
         status: TimerStatus.running,
-        phase: restPhase,
+        phase: following,
         phaseStartedAt: endedAt,
-        phaseEndsAt: restEndsAt,
+        phaseEndsAt: nextEndsAt,
         planned: planned,
         extended: Duration.zero,
         pausedTotal: Duration.zero,
@@ -258,7 +283,8 @@ class TimerEngine {
         const CancelAlarms(),
         ended,
         sound,
-        ScheduleAlarm(phase: restPhase, at: restEndsAt, target: s.target),
+        ScheduleAlarm(phase: following, at: nextEndsAt, target: s.target),
+        ..._followingAlarm(next),
         _ongoingFor(next),
       ]);
     }
@@ -279,10 +305,16 @@ class TimerEngine {
     ]);
   }
 
-  /// Which rest follows the [completedApproaches]-th approach.
+  /// Which rest comes after [completedApproaches] approaches: the one that
+  /// follows the last of them, or (rest first) the one that opens the next
+  /// round. The long rest is due after every [TimerConfig.cyclesBeforeLongRest]
+  /// completed approaches, never before the first.
   static Phase restPhaseFor(TimerConfig config, int completedApproaches) {
     final n = config.cyclesBeforeLongRest;
-    if (n > 0 && config.longRest != null && completedApproaches % n == 0) {
+    if (n > 0 &&
+        config.longRest != null &&
+        completedApproaches > 0 &&
+        completedApproaches % n == 0) {
       return Phase.longRest;
     }
     return Phase.rest;
@@ -303,7 +335,8 @@ class TimerConfig {
     this.longRest,
     this.cyclesBeforeLongRest = 0,
     this.snoozeBy = const Duration(minutes: 2),
-    this.autoStartRest = true,
+    this.restFirst = true,
+    this.autoStartNext = true,
   });
 
   final Duration approach;
@@ -314,8 +347,15 @@ class TimerConfig {
   final int cyclesBeforeLongRest;
   final Duration snoozeBy;
 
-  /// Start the rest interval the moment the approach completes.
-  final bool autoStartRest;
+  /// A round opens with the rest, then the approach: time to get ready
+  /// before the step, instead of having to do it the moment it is planned.
+  /// Off: the approach comes first and the rest follows it.
+  final bool restFirst;
+
+  /// Start the phase that follows (the approach after its rest, or the rest
+  /// after its approach) the moment the current one completes. Off: it is
+  /// started by hand.
+  final bool autoStartNext;
 
   Duration durationFor(Phase phase) => switch (phase) {
     Phase.approach => approach,
@@ -330,7 +370,8 @@ class TimerConfig {
     bool clearLongRest = false,
     int? cyclesBeforeLongRest,
     Duration? snoozeBy,
-    bool? autoStartRest,
+    bool? restFirst,
+    bool? autoStartNext,
   }) {
     return TimerConfig(
       approach: approach ?? this.approach,
@@ -338,7 +379,8 @@ class TimerConfig {
       longRest: clearLongRest ? null : (longRest ?? this.longRest),
       cyclesBeforeLongRest: cyclesBeforeLongRest ?? this.cyclesBeforeLongRest,
       snoozeBy: snoozeBy ?? this.snoozeBy,
-      autoStartRest: autoStartRest ?? this.autoStartRest,
+      restFirst: restFirst ?? this.restFirst,
+      autoStartNext: autoStartNext ?? this.autoStartNext,
     );
   }
 
@@ -350,7 +392,8 @@ class TimerConfig {
       other.longRest == longRest &&
       other.cyclesBeforeLongRest == cyclesBeforeLongRest &&
       other.snoozeBy == snoozeBy &&
-      other.autoStartRest == autoStartRest;
+      other.restFirst == restFirst &&
+      other.autoStartNext == autoStartNext;
 
   @override
   int get hashCode => Object.hash(
@@ -359,7 +402,8 @@ class TimerConfig {
     longRest,
     cyclesBeforeLongRest,
     snoozeBy,
-    autoStartRest,
+    restFirst,
+    autoStartNext,
   );
 }
 
@@ -419,6 +463,10 @@ class TimerState {
   bool get isPaused => status == TimerStatus.paused;
   bool get isActive => isRunning || isPaused;
   bool get isApproach => phase == Phase.approach;
+
+  /// A rest that prepares for the approach (rest first), as opposed to the
+  /// rest that follows one.
+  bool get isPreparing => phase.isRest && config.restFirst;
 
   Duration get plannedWithExtensions => planned + extended;
 
@@ -502,16 +550,18 @@ sealed class TimerEvent {
   final DateTime now;
 }
 
+/// Start a round ([phase] null: the config decides whether it opens with the
+/// rest or the approach), or one specific phase by hand.
 final class StartTimer extends TimerEvent {
   const StartTimer(
     super.now, {
     required this.runId,
-    this.phase = Phase.approach,
+    this.phase,
     this.target,
     this.config,
   });
   final String runId;
-  final Phase phase;
+  final Phase? phase;
   final ApproachTarget? target;
   final TimerConfig? config;
 }
@@ -528,9 +578,10 @@ final class ResumeTimer extends TimerEvent {
   const ResumeTimer(super.now);
 }
 
-/// Extend the current approach. Never a penalty.
-final class SnoozeApproach extends TimerEvent {
-  const SnoozeApproach(super.now, {this.by});
+/// Extend the current approach, or the rest that prepares for it. Never a
+/// penalty.
+final class Snooze extends TimerEvent {
+  const Snooze(super.now, {this.by});
   final Duration? by;
 }
 
@@ -573,27 +624,27 @@ final class CancelAlarms extends TimerEffect {
 }
 
 /// Show (or update) the live countdown: an ongoing notification on Android,
-/// a Live Activity on iOS. [restEndsAt] is set during an approach when a
-/// rest will follow automatically, so a lock-screen view can switch to the
-/// rest on its own if the app is suspended when the approach ends.
+/// a Live Activity on iOS. [nextPhase] and [nextEndsAt] are set when another
+/// phase will follow automatically, so a lock-screen view can switch to it
+/// on its own if the app is suspended when the current phase ends.
 final class ShowOngoing extends TimerEffect {
   const ShowOngoing({
     required this.runId,
     required this.phase,
     required this.endsAt,
     this.target,
-    this.restEndsAt,
-    this.restPhase,
+    this.nextEndsAt,
+    this.nextPhase,
     this.pausedAt,
   });
   final String runId;
   final Phase phase;
   final DateTime endsAt;
   final ApproachTarget? target;
-  final DateTime? restEndsAt;
+  final DateTime? nextEndsAt;
 
-  /// Which rest follows (rest or long rest), when [restEndsAt] is set.
-  final Phase? restPhase;
+  /// The phase that follows on its own, when [nextEndsAt] is set.
+  final Phase? nextPhase;
 
   /// Set while paused: the countdown is frozen at `endsAt - pausedAt`.
   final DateTime? pausedAt;

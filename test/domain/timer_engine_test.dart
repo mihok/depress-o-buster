@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const engine = TimerEngine();
   final t0 = DateTime(2026, 10, 18, 9);
-  const config = TimerConfig(
+  const config = TimerConfig(restFirst: false, 
     approach: Duration(minutes: 5),
     rest: Duration(minutes: 30),
     snoozeBy: Duration(minutes: 2),
@@ -19,7 +19,7 @@ void main() {
   TimerTransition start(
     TimerState s,
     DateTime now, {
-    Phase phase = Phase.approach,
+    Phase? phase,
     TimerConfig? cfg,
     ApproachTarget? tgt = target,
     String runId = 'run-1',
@@ -60,15 +60,15 @@ void main() {
       expect(ongoing.endsAt, scheduled[0].at);
       expect(ongoing.runId, 'run-1');
       expect(ongoing.phase, Phase.approach);
-      expect(ongoing.restEndsAt, t0.add(const Duration(minutes: 35)), reason: 'a lock-screen view can switch to the rest by itself');
-      expect(ongoing.restPhase, Phase.rest);
+      expect(ongoing.nextEndsAt, t0.add(const Duration(minutes: 35)), reason: 'a lock-screen view can switch to the rest by itself');
+      expect(ongoing.nextPhase, Phase.rest);
       expect(ongoing.pausedAt, isNull);
       expect(single<PlaySound>(tr).kind, SoundKind.start);
       expect(has<PhaseEnded>(tr), isFalse);
     });
 
     test('30-second approaches are valid, there is no lower bound', () {
-      const tiny = TimerConfig(approach: Duration(seconds: 30), rest: Duration(minutes: 1));
+      const tiny = TimerConfig(restFirst: false, approach: Duration(seconds: 30), rest: Duration(minutes: 1));
       final tr = start(TimerState.idle(tiny), t0, cfg: tiny);
       expect(tr.state.phaseEndsAt, t0.add(const Duration(seconds: 30)));
       final done = engine.reduce(tr.state, Tick(t0.add(const Duration(seconds: 30))));
@@ -137,7 +137,7 @@ void main() {
       expect(alarm.at, end.add(const Duration(minutes: 30)));
       final ongoing = single<ShowOngoing>(tr);
       expect(ongoing.phase, Phase.rest);
-      expect(ongoing.restEndsAt, isNull);
+      expect(ongoing.nextEndsAt, isNull);
       expect(ongoing.runId, 'run-1');
       final sound = single<PlaySound>(tr);
       expect(sound.kind, SoundKind.approachDone);
@@ -190,7 +190,7 @@ void main() {
   group('snooze', () {
     test('extends the approach and reschedules, no penalty', () {
       final s = running(t0);
-      final tr = engine.reduce(s, SnoozeApproach(t0.add(const Duration(minutes: 4))));
+      final tr = engine.reduce(s, Snooze(t0.add(const Duration(minutes: 4))));
       expect(tr.state.status, TimerStatus.running);
       expect(tr.state.phaseEndsAt, t0.add(const Duration(minutes: 7)));
       expect(tr.state.extended, const Duration(minutes: 2));
@@ -215,8 +215,8 @@ void main() {
     });
 
     test('accepts a custom amount and stacks', () {
-      var tr = engine.reduce(running(t0), SnoozeApproach(t0, by: const Duration(seconds: 30)));
-      tr = engine.reduce(tr.state, SnoozeApproach(t0, by: const Duration(seconds: 30)));
+      var tr = engine.reduce(running(t0), Snooze(t0, by: const Duration(seconds: 30)));
+      tr = engine.reduce(tr.state, Snooze(t0, by: const Duration(seconds: 30)));
       expect(tr.state.phaseEndsAt, t0.add(const Duration(minutes: 6)));
       expect(tr.state.snoozeCount, 2);
       expect(tr.state.extended, const Duration(minutes: 1));
@@ -224,14 +224,14 @@ void main() {
 
     test('is ignored during rest', () {
       final rest = engine.reduce(running(t0), Tick(t0.add(const Duration(minutes: 5)))).state;
-      final tr = engine.reduce(rest, SnoozeApproach(t0.add(const Duration(minutes: 6))));
-      expect(tr.state, same(rest));
+      final tr = engine.reduce(rest, Snooze(t0.add(const Duration(minutes: 6))));
+      expect(tr.state, same(rest), reason: 'a rest after the approach is simply rest');
       expect(tr.effects, isEmpty);
     });
 
     test('while paused adds to the remaining time', () {
       final paused = engine.reduce(running(t0), PauseTimer(t0.add(const Duration(minutes: 1)))).state;
-      final tr = engine.reduce(paused, SnoozeApproach(t0.add(const Duration(minutes: 2))));
+      final tr = engine.reduce(paused, Snooze(t0.add(const Duration(minutes: 2))));
       expect(tr.state.status, TimerStatus.paused);
       expect(tr.state.pausedRemaining, const Duration(minutes: 6));
       expect(tr.state.snoozeCount, 1);
@@ -251,7 +251,7 @@ void main() {
       final frozen = single<ShowOngoing>(tr);
       expect(frozen.pausedAt, t0.add(const Duration(minutes: 2)), reason: 'the live countdown freezes instead of vanishing');
       expect(frozen.endsAt, t0.add(const Duration(minutes: 5)));
-      expect(frozen.restEndsAt, isNull);
+      expect(frozen.nextEndsAt, isNull);
       expect(has<HideOngoing>(tr), isFalse);
     });
 
@@ -298,7 +298,7 @@ void main() {
     });
 
     test('after a snooze it is logged as snoozed', () {
-      final snoozed = engine.reduce(running(t0), SnoozeApproach(t0)).state;
+      final snoozed = engine.reduce(running(t0), Snooze(t0)).state;
       final tr = engine.reduce(snoozed, FinishEarly(t0.add(const Duration(minutes: 6))));
       expect(single<PhaseEnded>(tr).outcome, SessionOutcome.snoozed);
     });
@@ -363,8 +363,8 @@ void main() {
     });
   });
 
-  group('long rest', () {
-    const cfg = TimerConfig(
+  group('long rest (approach first)', () {
+    const cfg = TimerConfig(restFirst: false, 
       approach: Duration(minutes: 25),
       rest: Duration(minutes: 5),
       longRest: Duration(minutes: 20),
@@ -380,7 +380,7 @@ void main() {
       tr = start(tr.state, t0.add(const Duration(minutes: 31)), cfg: cfg, runId: 'run-2');
       expect(alarms(tr).last.phase, Phase.longRest, reason: 'pre-scheduled rest alarm knows it is the long one');
       expect(alarms(tr).last.at, t0.add(const Duration(minutes: 76)));
-      expect(single<ShowOngoing>(tr).restPhase, Phase.longRest, reason: 'the lock screen can label the long rest');
+      expect(single<ShowOngoing>(tr).nextPhase, Phase.longRest, reason: 'the lock screen can label the long rest');
       tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 56))));
       expect(tr.state.phase, Phase.longRest);
       expect(tr.state.planned, const Duration(minutes: 20));
@@ -400,30 +400,30 @@ void main() {
     });
 
     test('no long rest when cycles is 0 or longRest is null', () {
-      const noLong = TimerConfig(approach: Duration(minutes: 1), rest: Duration(minutes: 1), cyclesBeforeLongRest: 1);
+      const noLong = TimerConfig(restFirst: false, approach: Duration(minutes: 1), rest: Duration(minutes: 1), cyclesBeforeLongRest: 1);
       final tr = engine.reduce(running(t0, cfg: noLong), Tick(t0.add(const Duration(minutes: 1))));
       expect(tr.state.phase, Phase.rest);
-      const zero = TimerConfig(approach: Duration(minutes: 1), rest: Duration(minutes: 1), longRest: Duration(minutes: 9));
+      const zero = TimerConfig(restFirst: false, approach: Duration(minutes: 1), rest: Duration(minutes: 1), longRest: Duration(minutes: 9));
       final tr2 = engine.reduce(running(t0, cfg: zero), Tick(t0.add(const Duration(minutes: 1))));
       expect(tr2.state.phase, Phase.rest);
     });
   });
 
-  group('autoStartRest off', () {
+  group('autoStartNext off (approach first)', () {
     test('only the approach alarm is scheduled on start, and no rest end is announced', () {
-      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartRest: false);
+      const manual = TimerConfig(restFirst: false, approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartNext: false);
       final tr = start(TimerState.idle(manual), t0, cfg: manual);
       expect(alarms(tr).map((a) => a.phase), [Phase.approach]);
-      expect(single<ShowOngoing>(tr).restEndsAt, isNull);
+      expect(single<ShowOngoing>(tr).nextEndsAt, isNull);
     });
 
     test('a rest started by hand honours the long-rest cycle', () {
-      const manual = TimerConfig(
+      const manual = TimerConfig(restFirst: false, 
         approach: Duration(minutes: 5),
         rest: Duration(minutes: 10),
         longRest: Duration(minutes: 25),
         cyclesBeforeLongRest: 2,
-        autoStartRest: false,
+        autoStartNext: false,
       );
       var tr = engine.reduce(running(t0, cfg: manual), Tick(t0.add(const Duration(minutes: 5))));
       expect(tr.state.status, TimerStatus.finished);
@@ -442,7 +442,7 @@ void main() {
     });
 
     test('approach completion ends in finished with no rest scheduled', () {
-      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartRest: false);
+      const manual = TimerConfig(restFirst: false, approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartNext: false);
       final tr = engine.reduce(running(t0, cfg: manual), Tick(t0.add(const Duration(minutes: 5))));
       expect(tr.state.status, TimerStatus.finished);
       expect(tr.state.phase, Phase.approach);
@@ -455,6 +455,141 @@ void main() {
       expect(rest.state.phase, Phase.rest);
       expect(rest.state.target, target, reason: 'a rest keeps the previous target');
       expect(rest.state.planned, const Duration(minutes: 30));
+    });
+  });
+
+  group('rest first (the default)', () {
+    const cfg = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), snoozeBy: Duration(minutes: 2));
+
+    test('a round opens with the rest and pre-schedules the step', () {
+      final tr = start(TimerState.idle(cfg), t0, cfg: cfg);
+      final s = tr.state;
+      expect(s.status, TimerStatus.running);
+      expect(s.phase, Phase.rest);
+      expect(s.isPreparing, isTrue);
+      expect(s.planned, const Duration(minutes: 30));
+      expect(s.phaseEndsAt, t0.add(const Duration(minutes: 30)));
+      expect(s.target, target, reason: 'the rest knows which step it prepares for');
+      expect(s.cycleIndex, 0);
+      expect(alarms(tr).map((a) => a.phase), [Phase.rest, Phase.approach]);
+      expect(alarms(tr)[1].at, t0.add(const Duration(minutes: 35)), reason: 'the step alarm fires even if the app is dead at the hand-over');
+      final ongoing = single<ShowOngoing>(tr);
+      expect(ongoing.phase, Phase.rest);
+      expect(ongoing.nextPhase, Phase.approach);
+      expect(ongoing.nextEndsAt, t0.add(const Duration(minutes: 35)));
+      expect(single<PlaySound>(tr).kind, SoundKind.start);
+    });
+
+    test('when the rest ends the step begins on its own', () {
+      final rest = start(TimerState.idle(cfg), t0, cfg: cfg).state;
+      final tr = engine.reduce(rest, Tick(t0.add(const Duration(minutes: 30))));
+      expect(tr.state.status, TimerStatus.running);
+      expect(tr.state.phase, Phase.approach);
+      expect(tr.state.phaseStartedAt, t0.add(const Duration(minutes: 30)));
+      expect(tr.state.phaseEndsAt, t0.add(const Duration(minutes: 35)));
+      expect(tr.state.cycleIndex, 0, reason: 'nothing completed yet');
+      expect(tr.state.target, target);
+      final ended = single<PhaseEnded>(tr);
+      expect(ended.phase, Phase.rest);
+      expect(ended.outcome, SessionOutcome.completed);
+      expect(ended.actual, const Duration(minutes: 30));
+      expect(single<PlaySound>(tr).kind, SoundKind.restDone);
+      expect(single<ScheduleAlarm>(tr).phase, Phase.approach);
+      final ongoing = single<ShowOngoing>(tr);
+      expect(ongoing.phase, Phase.approach);
+      expect(ongoing.nextPhase, isNull, reason: 'the step closes the round');
+    });
+
+    test('when the step ends the round is complete', () {
+      var tr = engine.reduce(start(TimerState.idle(cfg), t0, cfg: cfg).state, Tick(t0.add(const Duration(minutes: 30))));
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 35))));
+      expect(tr.state.status, TimerStatus.finished);
+      expect(tr.state.phase, Phase.approach);
+      expect(tr.state.cycleIndex, 1);
+      expect(has<ScheduleAlarm>(tr), isFalse);
+      expect(has<HideOngoing>(tr), isTrue);
+      expect(single<PhaseEnded>(tr).phase, Phase.approach);
+      expect(single<PlaySound>(tr).kind, SoundKind.approachDone);
+      // Another round opens with the rest again, with whatever target is given.
+      final next = start(tr.state, t0.add(const Duration(minutes: 40)), cfg: cfg, runId: 'run-2', tgt: null);
+      expect(next.state.phase, Phase.rest);
+      expect(next.state.cycleIndex, 1);
+      expect(next.state.target, isNull, reason: 'a new round does not inherit the old target');
+    });
+
+    test('more time to get ready: snoozing the rest moves the step too', () {
+      final rest = start(TimerState.idle(cfg), t0, cfg: cfg).state;
+      final tr = engine.reduce(rest, Snooze(t0.add(const Duration(minutes: 25))));
+      expect(tr.state.phase, Phase.rest);
+      expect(tr.state.phaseEndsAt, t0.add(const Duration(minutes: 32)));
+      expect(tr.state.snoozeCount, 1);
+      expect(alarms(tr).map((a) => a.at), [t0.add(const Duration(minutes: 32)), t0.add(const Duration(minutes: 37))]);
+      expect(single<ShowOngoing>(tr).nextEndsAt, t0.add(const Duration(minutes: 37)));
+    });
+
+    test('ready now: ending the rest early starts the step at once', () {
+      final rest = start(TimerState.idle(cfg), t0, cfg: cfg).state;
+      final tr = engine.reduce(rest, FinishEarly(t0.add(const Duration(minutes: 10))));
+      expect(tr.state.phase, Phase.approach);
+      expect(tr.state.status, TimerStatus.running);
+      expect(tr.state.phaseEndsAt, t0.add(const Duration(minutes: 15)));
+      final ended = single<PhaseEnded>(tr);
+      expect(ended.phase, Phase.rest);
+      expect(ended.outcome, SessionOutcome.completed);
+      expect(ended.actual, const Duration(minutes: 10));
+    });
+
+    test('with automatic start off the step waits for a tap', () {
+      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartNext: false);
+      var tr = start(TimerState.idle(manual), t0, cfg: manual);
+      expect(alarms(tr).map((a) => a.phase), [Phase.rest], reason: 'no step alarm is pre-scheduled');
+      expect(single<ShowOngoing>(tr).nextPhase, isNull);
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 30))));
+      expect(tr.state.status, TimerStatus.finished);
+      expect(tr.state.phase, Phase.rest);
+      expect(tr.state.isPreparing, isTrue);
+      expect(has<HideOngoing>(tr), isTrue);
+      tr = start(tr.state, t0.add(const Duration(minutes: 31)), phase: Phase.approach, cfg: manual);
+      expect(tr.state.phase, Phase.approach);
+      expect(tr.state.cycleIndex, 0);
+      expect(alarms(tr).map((a) => a.phase), [Phase.approach]);
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 36))));
+      expect(tr.state.status, TimerStatus.finished);
+      expect(tr.state.cycleIndex, 1);
+    });
+
+    test('the long rest opens a round after enough completed steps, never the first', () {
+      const long = TimerConfig(
+        approach: Duration(minutes: 5),
+        rest: Duration(minutes: 10),
+        longRest: Duration(minutes: 25),
+        cyclesBeforeLongRest: 2,
+      );
+      var tr = start(TimerState.idle(long), t0, cfg: long);
+      expect(tr.state.phase, Phase.rest, reason: 'no long rest before anything was done');
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 10))));
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 15))));
+      expect(tr.state.cycleIndex, 1);
+      tr = start(tr.state, t0.add(const Duration(minutes: 16)), cfg: long, runId: 'run-2');
+      expect(tr.state.phase, Phase.rest);
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 26))));
+      tr = engine.reduce(tr.state, Tick(t0.add(const Duration(minutes: 31))));
+      expect(tr.state.cycleIndex, 2);
+      tr = start(tr.state, t0.add(const Duration(minutes: 32)), cfg: long, runId: 'run-3');
+      expect(tr.state.phase, Phase.longRest, reason: 'two steps done: the next round opens with the long rest');
+      expect(tr.state.planned, const Duration(minutes: 25));
+      expect(alarms(tr).map((a) => a.phase), [Phase.longRest, Phase.approach]);
+      expect(single<ShowOngoing>(tr).nextPhase, Phase.approach);
+    });
+
+    test('abandoning the rest returns to idle and keeps the target', () {
+      final rest = start(TimerState.idle(cfg), t0, cfg: cfg).state;
+      final tr = engine.reduce(rest, AbandonTimer(t0.add(const Duration(minutes: 3))));
+      expect(tr.state.status, TimerStatus.idle);
+      expect(tr.state.target, target);
+      final ended = single<PhaseEnded>(tr);
+      expect(ended.phase, Phase.rest);
+      expect(ended.outcome, SessionOutcome.abandoned);
     });
   });
 
@@ -477,7 +612,7 @@ void main() {
     });
 
     test('progress accounts for snooze extensions', () {
-      final s = engine.reduce(running(t0), SnoozeApproach(t0)).state;
+      final s = engine.reduce(running(t0), Snooze(t0)).state;
       expect(s.plannedWithExtensions, const Duration(minutes: 7));
       expect(s.progress(t0.add(const Duration(minutes: 3, seconds: 30))), closeTo(0.5, 1e-9));
     });
@@ -503,7 +638,7 @@ void main() {
 
     test('update config does not touch the running phase', () {
       final s = running(t0);
-      const other = TimerConfig(approach: Duration(minutes: 50), rest: Duration(minutes: 10));
+      const other = TimerConfig(restFirst: false, approach: Duration(minutes: 50), rest: Duration(minutes: 10));
       final tr = engine.reduce(s, UpdateConfig(t0, other));
       expect(tr.state.config, other);
       expect(tr.state.phaseEndsAt, s.phaseEndsAt);

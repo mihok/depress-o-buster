@@ -240,16 +240,17 @@ void main() {
     await tapText(tester, 'Sit up for 2 minutes');
     await tester.pump(const Duration(seconds: 7));
     await tester.pump();
-    await _shot(tester, '02-approach');
+    await _shot(tester, '02-rest-first');
 
-    await tapText(tester, 'Done early');
+    await tester.pump(const Duration(milliseconds: 900));
+    await tapText(tester, 'Start the step');
     await tester.pump(const Duration(milliseconds: 900));
     await tester.pump();
-    await _shot(tester, '03-rest');
+    await _shot(tester, '03-approach');
 
-    await tester.pump(const Duration(minutes: 10));
+    await tester.pump(const Duration(minutes: 2));
     await _Harness.settle(tester);
-    await _shot(tester, '04-rest-complete');
+    await _shot(tester, '04-round-complete');
 
     await tapText(tester, 'Done for now');
     await tapText(tester, 'Tasks');

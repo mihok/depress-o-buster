@@ -269,7 +269,7 @@ class _BreakdownSheetState extends ConsumerState<_BreakdownSheet> {
                   child: Text(
                     rung == null
                         ? 'Add ${_selected.length} steps to the ladder'
-                        : 'Insert ${_selected.length} steps before this rung',
+                        : 'Insert ${_selected.length} steps before this step',
                   ),
                 ),
               ],

@@ -4,7 +4,7 @@ import Foundation
 
 /// Method channel `app.depressobuster/live_activity`:
 ///   isAvailable()                                   -> Bool
-///   show(phase, title, endsAtMs, restEndsAtMs?, runId) -> Bool
+///   show(phase, title, endsAtMs, nextEndsAtMs?, nextPhase?, runId) -> Bool
 ///   hide()                                          -> Bool
 ///
 /// One Live Activity per run: `show` updates the activity for `runId` when it
@@ -38,16 +38,16 @@ final class LiveActivityBridge: NSObject {
         result(FlutterError(code: "bad_args", message: "phase, title, runId and endsAtMs are required", details: nil))
         return
       }
-      let restEndsAtMs = (args["restEndsAtMs"] as? NSNumber)?.doubleValue
+      let nextEndsAtMs = (args["nextEndsAtMs"] as? NSNumber)?.doubleValue
       let pausedAtMs = (args["pausedAtMs"] as? NSNumber)?.doubleValue
-      let restPhase = args["restPhase"] as? String
+      let nextPhase = args["nextPhase"] as? String
       let endsAt = Date(timeIntervalSince1970: endsAtMs / 1000)
-      let restEndsAt = restEndsAtMs.map { Date(timeIntervalSince1970: $0 / 1000) }
+      let nextEndsAt = nextEndsAtMs.map { Date(timeIntervalSince1970: $0 / 1000) }
       let pausedAt = pausedAtMs.map { Date(timeIntervalSince1970: $0 / 1000) }
       Task { @MainActor in
         let ok = await LiveActivityBridge.show(
-          phase: phase, title: title, endsAt: endsAt, restEndsAt: restEndsAt,
-          restPhase: restPhase, pausedAt: pausedAt, runId: runId)
+          phase: phase, title: title, endsAt: endsAt, nextEndsAt: nextEndsAt,
+          nextPhase: nextPhase, pausedAt: pausedAt, runId: runId)
         result(ok)
       }
     case "hide":
@@ -62,16 +62,16 @@ final class LiveActivityBridge: NSObject {
 
   @available(iOS 16.2, *)
   private static func show(
-    phase: String, title: String, endsAt: Date, restEndsAt: Date?,
-    restPhase: String?, pausedAt: Date?, runId: String
+    phase: String, title: String, endsAt: Date, nextEndsAt: Date?,
+    nextPhase: String?, pausedAt: Date?, runId: String
   ) async -> Bool {
     guard ActivityAuthorizationInfo().areActivitiesEnabled else { return false }
     let state = TimerActivityAttributes.ContentState(
-      phase: phase, title: title, endsAt: endsAt, restEndsAt: restEndsAt,
-      restPhase: restPhase, pausedAt: pausedAt)
-    // Stale at the end of the phase: the widget then shows the rest countdown
-    // (if one follows) without any help from the app. A paused timer has no
-    // end to go stale at.
+      phase: phase, title: title, endsAt: endsAt, nextEndsAt: nextEndsAt,
+      nextPhase: nextPhase, pausedAt: pausedAt)
+    // Stale at the end of the phase: the widget then shows the countdown of
+    // the phase that follows (if one does) without any help from the app. A
+    // paused timer has no end to go stale at.
     let content = ActivityContent(state: state, staleDate: pausedAt == nil ? endsAt : nil)
     for activity in Activity<TimerActivityAttributes>.activities {
       if activity.attributes.runId == runId {
