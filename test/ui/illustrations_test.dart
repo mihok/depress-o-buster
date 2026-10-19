@@ -15,8 +15,19 @@ void main() {
     for (final kind in Illustration.values) {
       final file = File(kind.assetPath);
 
-      test('${kind.file}: exists and is small', () {
+      test('${kind.file}: exists', () {
         expect(file.existsSync(), isTrue, reason: '${kind.assetPath} is missing');
+      });
+
+      if (kind.raster) {
+        test('${kind.file}: is the generated icon', () {
+          expect(kind.assetPath, endsWith('.png'));
+          expect(file.lengthSync(), greaterThan(1000));
+        });
+        continue;
+      }
+
+      test('${kind.file}: is small', () {
         expect(file.lengthSync(), lessThan(4096), reason: 'a handful of shapes, not a painting');
       });
 
@@ -87,7 +98,9 @@ void main() {
           await tester.pump();
         });
         expect(tester.takeException(), isNull);
-        expect(find.byType(SvgPicture), findsNWidgets(Illustration.values.length));
+        final vectors = Illustration.values.where((k) => !k.raster).length;
+        expect(find.byType(SvgPicture), findsNWidgets(vectors));
+        expect(find.byType(Image), findsNWidgets(Illustration.values.length - vectors));
       });
     }
 
@@ -111,15 +124,16 @@ void main() {
       expect(pictures[1].semanticsLabel, Illustration.restMoon.description);
     });
 
-    testWidgets('the mark keeps its brand colours in the light theme', (tester) async {
+    testWidgets('the mark is the painted icon, untouched by the theme', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(brightness: Brightness.light),
           home: const Scaffold(body: AppIllustration(Illustration.mark, height: 40)),
         ),
       );
-      final picture = tester.widget<SvgPicture>(find.byType(SvgPicture));
-      expect((picture.bytesLoader as SvgAssetLoader).colorMapper, isNull);
+      expect(find.byType(SvgPicture), findsNothing);
+      final image = tester.widget<Image>(find.byType(Image));
+      expect(image.color, isNull);
     });
   });
 }

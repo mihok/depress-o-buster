@@ -1,6 +1,6 @@
 # Depress-o-buster
 
-![Depress-o-buster: a stone in still water](docs/images/banner.svg)
+![Depress-o-buster: a pebble in still water](docs/images/banner.png)
 
 An inverted-Pomodoro timer for days when the hard part is starting. Instead of 25 minutes of work and 5 of rest,
 a session looks like "5 minutes sitting next to the laundry pile, then 30 minutes back in bed". The work interval

@@ -35,16 +35,20 @@ enum Illustration {
   /// A stone above three pebbles. The "break this down smaller" sheet.
   stoneSplit('stone_split', 'A stone above three smaller pebbles'),
 
-  /// The brand mark, with its own background. Fixed colours in both themes.
-  mark('mark', 'The Depress-o-buster mark: a stone in still water', folder: 'brand');
+  /// The app icon: the painted pebble on its own background. Fixed colours
+  /// in both themes.
+  mark('mark', 'The Depress-o-buster icon: a pebble in still water', folder: 'brand', raster: true);
 
-  const Illustration(this.file, this.description, {this.folder = 'illustrations'});
+  const Illustration(this.file, this.description, {this.folder = 'illustrations', this.raster = false});
 
   final String file;
   final String description;
   final String folder;
 
-  String get assetPath => 'assets/$folder/$file.svg';
+  /// A PNG rather than an SVG (the icon is painted, not drawn in code).
+  final bool raster;
+
+  String get assetPath => 'assets/$folder/$file.${raster ? 'png' : 'svg'}';
 
   /// The mark carries its own background, so it keeps the brand colours
   /// whatever the theme. Everything else follows the theme.
@@ -102,16 +106,30 @@ class AppIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final picture = SvgPicture.asset(
-      kind.assetPath,
-      height: height,
-      fit: BoxFit.contain,
-      colorMapper: kind.followsTheme ? PaletteMapper.of(context) : null,
-      excludeFromSemantics: decorative,
-      semanticsLabel: decorative ? null : kind.description,
-      // Keep the layout stable while the asset decodes.
-      placeholderBuilder: (_) => SizedBox(height: height),
-    );
+    final Widget picture;
+    if (kind.raster) {
+      // Decoded at a sensible size: the 1024 px icon is shown at 56 px.
+      final pixels = (height * MediaQuery.devicePixelRatioOf(context)).round();
+      picture = Image.asset(
+        kind.assetPath,
+        height: height,
+        fit: BoxFit.contain,
+        cacheHeight: pixels,
+        excludeFromSemantics: decorative,
+        semanticLabel: decorative ? null : kind.description,
+      );
+    } else {
+      picture = SvgPicture.asset(
+        kind.assetPath,
+        height: height,
+        fit: BoxFit.contain,
+        colorMapper: kind.followsTheme ? PaletteMapper.of(context) : null,
+        excludeFromSemantics: decorative,
+        semanticsLabel: decorative ? null : kind.description,
+        // Keep the layout stable while the asset decodes.
+        placeholderBuilder: (_) => SizedBox(height: height),
+      );
+    }
     final faded = opacity >= 1 ? picture : Opacity(opacity: opacity, child: picture);
     return Center(child: faded);
   }
