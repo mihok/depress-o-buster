@@ -98,29 +98,43 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
             child: Text(
-              'Each step is a short approach with its own rest before it. The rest grows with the '
-              'step\'s place in the ladder (×1, ×1, ×2, ×3, ×5, ×8, ×13 of the rest unit), whatever '
-              'the step\'s length, and moves with it.',
+              'Each step has its own rest before it. The rest grows with the step\'s place in '
+              'the ladder (×1, ×1, ×2, ×3, ×5, ×8, ×13 of the rest unit), whatever the step\'s '
+              'length, and moves with the step.',
               style: theme.textTheme.bodySmall,
             ),
           ),
-          if (hasTimes)
-            _StretchCard(
-              title: 'Step length',
-              value: StepScaling.label(_previewFactor),
-              factor: _previewFactor,
-              onChangeStart: () => _draggingSlider = true,
-              onChanged: (f) => setState(() => _previewFactor = f),
-              onChangeEnd: (f) => _applyStepLength(t, f),
+          // The two stretch sliders fold away so the ladder stays in view;
+          // the tiles preview live while either is held.
+          Card(
+            margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: ExpansionTile(
+              title: const Text('Adjust step length and rest unit'),
+              subtitle: Text('Rest unit ${formatWords(shownUnit)} · rests ${LadderRests.describe(shownUnit)}'),
+              shape: const Border(),
+              collapsedShape: const Border(),
+              childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              children: [
+                if (hasTimes)
+                  _StretchRow(
+                    title: 'Step length',
+                    value: StepScaling.label(_previewFactor),
+                    factor: _previewFactor,
+                    onChangeStart: () => _draggingSlider = true,
+                    onChanged: (f) => setState(() => _previewFactor = f),
+                    onChangeEnd: (f) => _applyStepLength(t, f),
+                  ),
+                _StretchRow(
+                  title: 'Rest unit',
+                  value: formatWords(shownUnit),
+                  factor: _restFactor,
+                  onChanged: (f) => setState(() => _restFactor = f),
+                  onChangeEnd: (f) => _applyRestUnit(t, unit, f),
+                ),
+              ],
             ),
-          _StretchCard(
-            title: 'Rest unit',
-            value: '${formatWords(shownUnit)} · ${LadderRests.describe(shownUnit)}',
-            factor: _restFactor,
-            onChanged: (f) => setState(() => _restFactor = f),
-            onChangeEnd: (f) => _applyRestUnit(t, unit, f),
           ),
           Expanded(
             child: ladder.isEmpty
@@ -386,11 +400,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 }
 
-/// A compact card with a [StretchSlider]: hold it at either end and it keeps
-/// going. Relative: after each release the slider returns to ×1 and the
-/// card's [value] shows what was saved.
-class _StretchCard extends StatelessWidget {
-  const _StretchCard({
+/// A titled [StretchSlider]: hold it at either end and it keeps going.
+/// Relative: after each release the slider returns to ×1 and [value] shows
+/// what was saved.
+class _StretchRow extends StatelessWidget {
+  const _StretchRow({
     required this.title,
     required this.value,
     required this.factor,
@@ -409,37 +423,24 @@ class _StretchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-        child: Column(
+    return Column(
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
-                Flexible(
-                  child: Text(
-                    value,
-                    style: theme.textTheme.labelLarge,
-                    textAlign: TextAlign.end,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            StretchSlider(
-              factor: factor,
-              semanticsLabel: title,
-              onChanged: (f) {
-                if (factor == 1 && f != 1) onChangeStart?.call();
-                onChanged(f);
-              },
-              onChangeEnd: onChangeEnd,
-            ),
+            Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+            Text(value, style: theme.textTheme.labelLarge),
           ],
         ),
-      ),
+        StretchSlider(
+          factor: factor,
+          semanticsLabel: title,
+          onChanged: (f) {
+            if (factor == 1 && f != 1) onChangeStart?.call();
+            onChanged(f);
+          },
+          onChangeEnd: onChangeEnd,
+        ),
+      ],
     );
   }
 }

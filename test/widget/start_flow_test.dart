@@ -10,6 +10,7 @@ import 'package:depress_o_buster/services/alarms/alarm_service.dart';
 import 'package:depress_o_buster/services/audio/sound_service.dart';
 import 'package:depress_o_buster/services/providers.dart';
 import 'package:depress_o_buster/services/settings/settings_service.dart';
+import 'package:depress_o_buster/ui/tasks/task_detail_screen.dart';
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -387,7 +388,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Sit next to the pile for 5 minutes'),
       100,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.descendant(of: find.byType(TaskDetailScreen), matching: find.byType(Scrollable)),
     );
     await tester.pump();
     await tester.tap(find.text('Sit next to the pile for 5 minutes'));
