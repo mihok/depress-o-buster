@@ -285,6 +285,14 @@ void main() {
     await tester.pump();
     expect(find.text('Think about laundry for 1 minute'), findsOneWidget);
     expect(find.text('Break this down smaller'), findsOneWidget);
+    // The step length card above the list pushes the fifth step below the
+    // 600 px test viewport, and a lazy list does not build what is off screen.
+    await tester.scrollUntilVisible(
+      find.text('Sit next to the pile for 5 minutes'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
     await tester.tap(find.text('Sit next to the pile for 5 minutes'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start a 5 min approach here'));

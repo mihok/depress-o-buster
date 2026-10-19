@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/entities.dart';
 import '../../domain/ladder/ladder_logic.dart';
+import '../../domain/ladder/step_scaling.dart';
 import '../db/database.dart';
 import '../mappers.dart';
 
@@ -141,6 +142,35 @@ class TaskRepository {
   Future<void> deleteStep(String taskId, String stepId) async {
     final current = await ladder(taskId);
     await replaceLadder(taskId, LadderLogic.remove(current, stepId));
+  }
+
+  /// Put a removed step back exactly as it was: same id, same position,
+  /// same text and time. Logged sessions and the "highest step" bonus refer
+  /// to steps by id, so an undo must not mint a new one. A step that is
+  /// already on the ladder is left alone.
+  Future<void> restoreStep(String taskId, LadderStep step) async {
+    final current = await ladder(taskId);
+    if (current.any((s) => s.id == step.id)) return;
+    await replaceLadder(taskId, LadderLogic.insertAt(current, step.position, step));
+  }
+
+  /// Multiply every step's suggested time by [factor] in one transaction,
+  /// rounded by [StepScaling.round]. Steps without a time keep none.
+  /// Returns how many steps actually changed.
+  Future<int> scaleStepDurations(String taskId, double factor) async {
+    final now = clock.now();
+    return _db.transaction(() async {
+      final current = await ladder(taskId);
+      final scaled = StepScaling.scaleAll(current, factor);
+      var changed = 0;
+      for (var i = 0; i < current.length; i++) {
+        if (scaled[i].suggestedDuration == current[i].suggestedDuration) continue;
+        await (_db.update(_db.ladderSteps)..where((s) => s.id.equals(scaled[i].id)))
+            .write(stepToCompanion(scaled[i], now));
+        changed++;
+      }
+      return changed;
+    });
   }
 
   Future<void> reorderSteps(String taskId, int oldIndex, int newIndex) async {
