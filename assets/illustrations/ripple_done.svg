@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
-  <!-- Approach complete: the stone has just settled and two rings spread from it -->
-  <ellipse cx="110" cy="105" rx="84" ry="19" fill="none" stroke="#8E9BC7" stroke-width="1.5" stroke-opacity="0.3"/>
-  <ellipse cx="110" cy="104" rx="58" ry="13" fill="none" stroke="#8E9BC7" stroke-width="2" stroke-opacity="0.6"/>
-  <!-- The stone from stone_still.svg, 2 px higher; drawn last so it hides the rings behind it -->
-  <path d="M 70 80 C 70 63.5, 89.5 53, 112.5 54 C 135.5 55, 150 65.5, 149.5 81 C 149 95, 134.5 102, 110.5 102 C 87 102, 70 95, 70 80 Z" fill="#8FB39A"/>
-</svg>

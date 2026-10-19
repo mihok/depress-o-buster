@@ -36,42 +36,42 @@ the nearest thing is fully opaque, the farthest is around 0.25.
 
 ## In-app illustrations
 
-All live in `assets/illustrations/`. A painted one is a PNG prepared by
-`tool/brand/prepare_illustration.py` (trimmed, padded to 3:2, 1440 × 960, its own colours on
-both themes). The vector ones are SVGs with `viewBox="0 0 240 160"` and no fixed
-`width`/`height` attributes. The water line sits at **y = 104** unless the brief says otherwise; everything
-rests on or above it. Keep 12 px of air on every side. One subject, centred or slightly
-left of centre. At most three palette colours per file.
+All live in `assets/illustrations/` as PNGs prepared by `tool/brand/prepare_illustration.py`
+from the paintings in `assets/images/`: trimmed, padded to a 3:2 frame with a little air,
+1440 × 960, their own colours on both themes (the paintings' outline reads on charcoal and
+off-white alike). Two pebbles alternate across the slots, the one at rest and the one
+standing, so the set stays quiet.
 
-Stones are rounded pebbles with a slightly flatter underside, drawn as a single cubic path.
-Ripples are elliptical arcs or ellipses with `stroke-width` 1.5 to 2.5 and `fill="none"`.
-A horizon is a single 1.5 px line at the water line, at 0.3 to 0.5 opacity, often shorter
-than the full width.
+| File               | Source                     | Where it appears                                        |
+|--------------------|----------------------------|---------------------------------------------------------|
+| `stone_still.png`  | `pebble-2.png` (at rest)   | Start tab, above the one-tap button                     |
+| `stone_dawn.png`   | `pebble.png` (standing)    | Start tab after three or more quiet days; rest complete |
+| `path_ahead.png`   | `pebbles.png`              | Running approach                                        |
+| `rest_moon.png`    | `moon.png`                 | Running rest                                            |
+| `ripple_done.png`  | `pebble-2.png` (at rest)   | Approach complete                                       |
+| `stones_empty.png` | `pebble.png` (standing)    | Tasks tab with no tasks                                 |
+| `water_quiet.png`  | `pebble-2.png` (at rest)   | Empty history and progress                              |
+| `stone_split.png`  | `pebble.png` (standing)    | "Break this down smaller" sheet                         |
 
-| File               | Where it appears                                   | What it says                                                        |
-|--------------------|----------------------------------------------------|---------------------------------------------------------------------|
-| `stone_still.svg`  | Start tab, above the one-tap button                | One stone, still water, one faint ring. Nothing is required of you. |
-| `stone_dawn.svg`   | Start tab after three or more quiet days; rest complete | The same stone with soft light low on the horizon. Good to see you. |
-| `path_ahead.png`   | Running approach                                   | Three painted pebbles stepping away (from `assets/images/pebbles.png`). Being near the thing. |
-| `rest_moon.png`    | Running rest                                       | A painted moon over still water (from `assets/images/moon.png`). Rest is the method too. |
-| `ripple_done.svg`  | Approach complete                                  | The stone with two rings spreading from it. That counted.          |
-| `stones_empty.svg` | Tasks tab with no tasks                            | Three small stones in a loose line going away. Pick one up.        |
-| `water_quiet.svg`  | Empty history and progress                         | Water only, one ring. Nothing logged yet, and that is fine.        |
-| `stone_split.svg`  | "Break this down smaller" sheet                    | One stone above, three pebbles below it. Smaller is still a step.  |
+```sh
+python3 tool/brand/prepare_illustration.py assets/images/pebble-2.png stone_still
+```
 
-Hard rules, in order of importance:
+To change a slot, prepare a different painting under the same name. Hard rules for any new
+painting: calm over clever (no faces, characters, confetti, arrows, checkmarks, trophies,
+exclamation marks, speed lines), a transparent background, and nothing that implies hurry
+or judgement.
 
-1. **Calm over clever.** No faces, characters, confetti, stars bursting, arrows, checkmarks,
-   trophies, exclamation marks, speed lines, or anything that implies hurry or judgement.
-2. **Dark first.** Author on `#0F1114`; check on `#F4F3EF` too (the mapper handles colours,
-   but the composition must still read when the light theme inverts the contrast).
-3. **flutter_svg subset only.** `path`, `circle`, `ellipse`, `rect`, `line`, `polyline`,
-   `polygon`, `g`, `defs`, `linearGradient`, `radialGradient`, `clipPath`. Attributes:
-   `fill`, `stroke`, `stroke-width`, `stroke-linecap`, `stroke-linejoin`,
-   `stroke-dasharray`, `opacity`, `fill-opacity`, `stroke-opacity`, `transform`.
-   **No** `filter`, `style` blocks, CSS classes, `text`, `image`, `mask`, `use`, or
-   `foreignObject`. Colours as 6-digit hex only.
-4. **Small files.** Under 4 KB each. A handful of shapes, not a trace of a painting.
+### Vector illustrations (the fallback contract)
+
+A slot can also be an SVG, `viewBox="0 0 240 160"`, no fixed `width`/`height`, authored for
+the dark theme in the palette above; `PaletteMapper` swaps the colours for the light theme.
+Stones are rounded pebbles with a slightly flatter underside, rings are thin elliptical
+strokes, a horizon is a single faint line at y = 104. Only the flutter_svg subset: `path`,
+`circle`, `ellipse`, `rect`, `line`, `polyline`, `polygon`, `g`, `defs`, gradients and
+`clipPath`; no `filter`, `style`, `text`, `image`, `mask` or `use`; six-digit hex colours
+only; under 4 KB. The original vector set lives in git history (before the paintings) and
+`assets/brand/mark*.svg` keeps the vector mark they were drawn to match.
 
 ## Brand mark
 

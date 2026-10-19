@@ -6,16 +6,17 @@ import '../../core/theme.dart';
 /// Every illustration in the app, by the file that draws it.
 ///
 /// The files live in `assets/illustrations/` and follow the contract in
-/// `docs/VISUALS.md`: one stone-and-water motif, authored for the dark theme in
-/// six palette colours that [PaletteMapper] swaps for the light theme at
-/// runtime. Replace an SVG with the same name and nothing else changes.
+/// `docs/VISUALS.md`: one stone-and-water motif. Today every slot is a
+/// painting (a PNG prepared from `assets/images/` by
+/// `tool/brand/prepare_illustration.py`); a vector slot would be an SVG in
+/// the palette that [PaletteMapper] swaps for the light theme. Replace a
+/// file with the same name and nothing else changes.
 enum Illustration {
-  /// One stone in still water. The Start tab, above the one-tap button.
-  stoneStill('stone_still', 'A stone resting in still water'),
+  /// A pebble at rest in still water. The Start tab, above the one-tap button.
+  stoneStill('stone_still', 'A pebble resting in still water', raster: true),
 
-  /// The stone with soft light on the horizon. After a quiet stretch, and
-  /// when a rest completes.
-  stoneDawn('stone_dawn', 'A stone in still water with soft light on the horizon'),
+  /// The upright pebble. After a quiet stretch, and when a rest completes.
+  stoneDawn('stone_dawn', 'A pebble standing in still water', raster: true),
 
   /// Three painted pebbles stepping away across water. The running approach.
   pathAhead('path_ahead', 'Three pebbles stepping away across still water', raster: true),
@@ -23,17 +24,17 @@ enum Illustration {
   /// A painted moon over water, no stone. The running rest.
   restMoon('rest_moon', 'A moon over still water', raster: true),
 
-  /// The stone with rings spreading from it. An approach just completed.
-  rippleDone('ripple_done', 'A stone with rings spreading from it'),
+  /// The pebble settled in its rings. An approach just completed.
+  rippleDone('ripple_done', 'A pebble settled in still water', raster: true),
 
-  /// Three small stones in a loose line. The Tasks tab with no tasks.
-  stonesEmpty('stones_empty', 'Three small stones in a line across water'),
+  /// The upright pebble. The Tasks tab with no tasks.
+  stonesEmpty('stones_empty', 'A pebble standing in still water', raster: true),
 
-  /// Water only. Empty history and progress.
-  waterQuiet('water_quiet', 'Still water with one faint ring'),
+  /// The pebble at rest. Empty history and progress.
+  waterQuiet('water_quiet', 'A pebble resting in still water', raster: true),
 
-  /// A stone above three pebbles. The "break this down smaller" sheet.
-  stoneSplit('stone_split', 'A stone above three smaller pebbles'),
+  /// The upright pebble. The "break this down smaller" sheet.
+  stoneSplit('stone_split', 'A pebble standing in still water', raster: true),
 
   /// The app icon: the painted pebble on its own background. Fixed colours
   /// in both themes.

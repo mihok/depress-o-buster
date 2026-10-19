@@ -111,22 +111,17 @@ void main() {
             body: Column(
               children: [
                 AppIllustration(Illustration.stoneStill, height: 40),
-                AppIllustration(Illustration.stoneDawn, height: 40, decorative: false),
                 AppIllustration(Illustration.restMoon, height: 40, decorative: false),
               ],
             ),
           ),
         ),
       );
-      final pictures = tester.widgetList<SvgPicture>(find.byType(SvgPicture)).toList();
-      expect((pictures[0].bytesLoader as SvgAssetLoader).colorMapper, isNotNull, reason: 'themed');
-      expect(pictures[0].excludeFromSemantics, isTrue);
-      expect(pictures[1].excludeFromSemantics, isFalse);
-      expect(pictures[1].semanticsLabel, Illustration.stoneDawn.description);
-      // A painted illustration is an Image with the same semantics contract.
-      final painting = tester.widget<Image>(find.byType(Image));
-      expect(painting.excludeFromSemantics, isFalse);
-      expect(painting.semanticLabel, Illustration.restMoon.description);
+      final images = tester.widgetList<Image>(find.byType(Image)).toList();
+      expect(images[0].excludeFromSemantics, isTrue);
+      expect(images[0].semanticLabel, isNull);
+      expect(images[1].excludeFromSemantics, isFalse);
+      expect(images[1].semanticLabel, Illustration.restMoon.description);
     });
 
     testWidgets('the mark is the painted icon, untouched by the theme', (tester) async {
