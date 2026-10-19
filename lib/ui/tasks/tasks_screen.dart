@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../domain/ladder/starter_ladders.dart';
 import '../../services/providers.dart';
 import '../widgets/illustration.dart';
@@ -48,9 +49,10 @@ class TasksScreen extends ConsumerWidget {
   }
 
   Future<void> _newTask(BuildContext context, WidgetRef ref) async {
+    final settings = ref.read(settingsProvider);
     final title = await showDialog<String>(
       context: context,
-      builder: (ctx) => const _NewTaskDialog(),
+      builder: (ctx) => _NewTaskDialog(restUnit: settings.rest),
     );
     if (title == null || title.trim().isEmpty || !context.mounted) return;
     final ladder = StarterLadders.match(title) ?? StarterLadders.generic(title);
@@ -85,7 +87,10 @@ class _TaskTile extends ConsumerWidget {
 }
 
 class _NewTaskDialog extends StatefulWidget {
-  const _NewTaskDialog();
+  const _NewTaskDialog({required this.restUnit});
+
+  /// The rest unit the new task's steps will climb from (the Settings rest).
+  final Duration restUnit;
 
   @override
   State<_NewTaskDialog> createState() => _NewTaskDialogState();
@@ -104,12 +109,25 @@ class _NewTaskDialogState extends State<_NewTaskDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('New task'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'e.g. Laundry, shower, reply to Sam'),
-        onSubmitted: (v) => Navigator.pop(context, v),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(hintText: 'e.g. Laundry, shower, reply to Sam'),
+            onSubmitted: (v) => Navigator.pop(context, v),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'It gets a ladder of short steps. Each step has a rest before it, growing with its '
+            'place in the ladder: ${LadderRests.describe(widget.restUnit)} You can change the rest '
+            'unit and every step afterwards.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),

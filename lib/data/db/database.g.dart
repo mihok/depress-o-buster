@@ -84,6 +84,17 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _restUnitSecondsMeta = const VerificationMeta(
+    'restUnitSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> restUnitSeconds = GeneratedColumn<int>(
+    'rest_unit_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -93,6 +104,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     updatedAt,
     archived,
     sortOrder,
+    restUnitSeconds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -153,6 +165,15 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('rest_unit_seconds')) {
+      context.handle(
+        _restUnitSecondsMeta,
+        restUnitSeconds.isAcceptableOrUnknown(
+          data['rest_unit_seconds']!,
+          _restUnitSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -190,6 +211,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      restUnitSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rest_unit_seconds'],
+      ),
     );
   }
 
@@ -207,6 +232,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
   final DateTime updatedAt;
   final bool archived;
   final int sortOrder;
+
+  /// The task's own rest unit in seconds; null follows Settings. Schema 3.
+  final int? restUnitSeconds;
   const TaskRow({
     required this.id,
     required this.title,
@@ -215,6 +243,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     required this.updatedAt,
     required this.archived,
     required this.sortOrder,
+    this.restUnitSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -228,6 +257,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['archived'] = Variable<bool>(archived);
     map['sort_order'] = Variable<int>(sortOrder);
+    if (!nullToAbsent || restUnitSeconds != null) {
+      map['rest_unit_seconds'] = Variable<int>(restUnitSeconds);
+    }
     return map;
   }
 
@@ -240,6 +272,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       updatedAt: Value(updatedAt),
       archived: Value(archived),
       sortOrder: Value(sortOrder),
+      restUnitSeconds: restUnitSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(restUnitSeconds),
     );
   }
 
@@ -256,6 +291,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       archived: serializer.fromJson<bool>(json['archived']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      restUnitSeconds: serializer.fromJson<int?>(json['restUnitSeconds']),
     );
   }
   @override
@@ -269,6 +305,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'archived': serializer.toJson<bool>(archived),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'restUnitSeconds': serializer.toJson<int?>(restUnitSeconds),
     };
   }
 
@@ -280,6 +317,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     DateTime? updatedAt,
     bool? archived,
     int? sortOrder,
+    Value<int?> restUnitSeconds = const Value.absent(),
   }) => TaskRow(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -288,6 +326,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     archived: archived ?? this.archived,
     sortOrder: sortOrder ?? this.sortOrder,
+    restUnitSeconds: restUnitSeconds.present
+        ? restUnitSeconds.value
+        : this.restUnitSeconds,
   );
   TaskRow copyWithCompanion(TasksCompanion data) {
     return TaskRow(
@@ -298,6 +339,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       archived: data.archived.present ? data.archived.value : this.archived,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      restUnitSeconds: data.restUnitSeconds.present
+          ? data.restUnitSeconds.value
+          : this.restUnitSeconds,
     );
   }
 
@@ -310,14 +354,23 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('archived: $archived, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('restUnitSeconds: $restUnitSeconds')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, title, note, createdAt, updatedAt, archived, sortOrder);
+  int get hashCode => Object.hash(
+    id,
+    title,
+    note,
+    createdAt,
+    updatedAt,
+    archived,
+    sortOrder,
+    restUnitSeconds,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -328,7 +381,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.archived == this.archived &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.restUnitSeconds == this.restUnitSeconds);
 }
 
 class TasksCompanion extends UpdateCompanion<TaskRow> {
@@ -339,6 +393,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
   final Value<DateTime> updatedAt;
   final Value<bool> archived;
   final Value<int> sortOrder;
+  final Value<int?> restUnitSeconds;
   final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
@@ -348,6 +403,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.updatedAt = const Value.absent(),
     this.archived = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.restUnitSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
@@ -358,6 +414,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     required DateTime updatedAt,
     this.archived = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.restUnitSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -371,6 +428,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Expression<DateTime>? updatedAt,
     Expression<bool>? archived,
     Expression<int>? sortOrder,
+    Expression<int>? restUnitSeconds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -381,6 +439,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (archived != null) 'archived': archived,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (restUnitSeconds != null) 'rest_unit_seconds': restUnitSeconds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -393,6 +452,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Value<DateTime>? updatedAt,
     Value<bool>? archived,
     Value<int>? sortOrder,
+    Value<int?>? restUnitSeconds,
     Value<int>? rowid,
   }) {
     return TasksCompanion(
@@ -403,6 +463,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       archived: archived ?? this.archived,
       sortOrder: sortOrder ?? this.sortOrder,
+      restUnitSeconds: restUnitSeconds ?? this.restUnitSeconds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -431,6 +492,9 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (restUnitSeconds.present) {
+      map['rest_unit_seconds'] = Variable<int>(restUnitSeconds.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -447,6 +511,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('archived: $archived, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('restUnitSeconds: $restUnitSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2974,6 +3039,7 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   required DateTime updatedAt,
   Value<bool> archived,
   Value<int> sortOrder,
+  Value<int?> restUnitSeconds,
   Value<int> rowid,
 });
 typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
@@ -2984,6 +3050,7 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<DateTime> updatedAt,
   Value<bool> archived,
   Value<int> sortOrder,
+  Value<int?> restUnitSeconds,
   Value<int> rowid,
 });
 
@@ -3050,6 +3117,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get restUnitSeconds => $composableBuilder(
+    column: $table.restUnitSeconds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3122,6 +3194,11 @@ class $$TasksTableOrderingComposer
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get restUnitSeconds => $composableBuilder(
+    column: $table.restUnitSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TasksTableAnnotationComposer
@@ -3153,6 +3230,11 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<int> get restUnitSeconds => $composableBuilder(
+    column: $table.restUnitSeconds,
+    builder: (column) => column,
+  );
 
   Expression<T> ladderStepsRefs<T extends Object>(
     Expression<T> Function($$LadderStepsTableAnnotationComposer a) f,
@@ -3215,6 +3297,7 @@ class $$TasksTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<int?> restUnitSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
@@ -3224,6 +3307,7 @@ class $$TasksTableTableManager
                 updatedAt: updatedAt,
                 archived: archived,
                 sortOrder: sortOrder,
+                restUnitSeconds: restUnitSeconds,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3235,6 +3319,7 @@ class $$TasksTableTableManager
                 required DateTime updatedAt,
                 Value<bool> archived = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<int?> restUnitSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
@@ -3244,6 +3329,7 @@ class $$TasksTableTableManager
                 updatedAt: updatedAt,
                 archived: archived,
                 sortOrder: sortOrder,
+                restUnitSeconds: restUnitSeconds,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

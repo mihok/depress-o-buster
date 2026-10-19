@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../domain/ladder/step_scaling.dart';
 import '../../services/providers.dart';
 import '../root_shell.dart';
 import '../widgets/duration_picker_tile.dart';
+import '../widgets/stretch_slider.dart';
 import 'breakdown_sheet.dart';
 
 /// The ladder editor. Any step can be started, edited, moved, swiped away or
@@ -28,6 +30,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   double _previewFactor = 1;
   bool _draggingSlider = false;
 
+  /// The same for the rest unit: the tiles show their rests scaled by it
+  /// while the rest slider is held.
+  double _restFactor = 1;
+
   /// Steps swiped away and hidden at once, so a dismissed tile leaves the
   /// tree in the same frame whatever the database does. An undo unhides.
   final Set<String> _removedIds = {};
@@ -42,6 +48,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
     final ladder = ref.watch(ladderProvider(widget.taskId)).value ?? const <LadderStep>[];
     final repo = ref.read(taskRepositoryProvider);
+    final settings = ref.watch(settingsProvider);
     ref.listen(ladderProvider(widget.taskId), (_, _) {
       if (_previewFactor != 1 && !_draggingSlider) {
         setState(() => _previewFactor = 1);
@@ -58,6 +65,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         if (!_removedIds.contains(s.id)) s,
     ];
     final hasTimes = ladder.any((s) => s.suggestedDuration != null);
+    final unit = LadderRests.unitFor(t, settings.rest);
+    final shownUnit = _restFactor == 1 ? unit : LadderRests.scaleUnit(unit, _restFactor);
 
     return Scaffold(
       appBar: AppBar(
@@ -88,13 +97,31 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Text(
+              'Each step is a short approach with its own rest before it. The rest grows with the '
+              'step\'s place in the ladder (×1, ×1, ×2, ×3, ×5, ×8, ×13 of the rest unit), whatever '
+              'the step\'s length, and moves with it.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
           if (hasTimes)
-            _StepLengthCard(
+            _StretchCard(
+              title: 'Step length',
+              value: StepScaling.label(_previewFactor),
               factor: _previewFactor,
               onChangeStart: () => _draggingSlider = true,
               onChanged: (f) => setState(() => _previewFactor = f),
               onChangeEnd: (f) => _applyStepLength(t, f),
             ),
+          _StretchCard(
+            title: 'Rest unit',
+            value: '${formatWords(shownUnit)} · ${LadderRests.describe(shownUnit)}',
+            factor: _restFactor,
+            onChanged: (f) => setState(() => _restFactor = f),
+            onChangeEnd: (f) => _applyRestUnit(t, unit, f),
+          ),
           Expanded(
             child: ladder.isEmpty
                 ? Center(
@@ -129,9 +156,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                 child: Text('${index + 1}', style: theme.textTheme.labelMedium),
                               ),
                               title: Text(step.text),
-                              subtitle: step.suggestedDuration == null
-                                  ? null
-                                  : Text(formatWords(step.suggestedDuration!)),
+                              subtitle: Text(
+                                'Rest ${formatWords(LadderRests.restFor(unit: shownUnit, position: index))}'
+                                ' · ${step.suggestedDuration == null ? 'usual ${formatWords(settings.approach)}' : formatWords(step.suggestedDuration!)}',
+                              ),
                               trailing: ReorderableDragStartListener(
                                 index: index,
                                 child: const SizedBox(
@@ -216,6 +244,35 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
   }
 
+  /// The rest slider was let go: save the new unit for this task, with a
+  /// way back. The slider returns to ×1 once the task stream echoes.
+  Future<void> _applyRestUnit(Task task, Duration unit, double factor) async {
+    if (factor == 1) return;
+    final repo = ref.read(taskRepositoryProvider);
+    final next = LadderRests.scaleUnit(unit, factor);
+    await repo.setRestUnit(task.id, next);
+    if (!mounted) return;
+    setState(() => _restFactor = 1);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Rest unit is now ${formatWords(next)}'),
+        behavior: SnackBarBehavior.floating,
+        persist: false,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            try {
+              await repo.setRestUnit(task.id, task.restUnit);
+            } catch (e) {
+              debugPrint('setRestUnit failed: $e');
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   /// Remove a step with a quiet way back. Undo restores the very same step
   /// (same id and position), so its history still counts.
   Future<void> _removeStep(Task task, LadderStep step) async {
@@ -255,6 +312,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   ) async {
     final settings = ref.read(settingsProvider);
     final duration = step.suggestedDuration ?? settings.approach;
+    final rest = LadderRests.restFor(unit: LadderRests.unitFor(task, settings.rest), position: step.position);
     final repo = ref.read(taskRepositoryProvider);
     await showModalBottomSheet<void>(
       context: context,
@@ -271,7 +329,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               onPressed: () {
                 Navigator.pop(ctx);
                 ref.read(timerControllerProvider.notifier).start(
-                  config: settings.timerConfig.copyWith(approach: duration),
+                  config: settings.timerConfig.copyWith(approach: duration, rest: rest),
                   target: ApproachTarget(
                     taskId: task.id,
                     taskTitle: task.title,
@@ -285,8 +343,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               },
               child: Text(
                 settings.restFirst
-                    ? 'Rest first, then a ${formatWords(duration)} approach here'
-                    : 'Start a ${formatWords(duration)} approach here',
+                    ? 'Rest ${formatWords(rest)}, then ${formatWords(duration)} here'
+                    : '${formatWords(duration)} here, then rest ${formatWords(rest)}',
               ),
             ),
             const SizedBox(height: 8),
@@ -304,7 +362,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   child: TextButton(
                     onPressed: () async {
                       Navigator.pop(ctx);
-                      final edited = await _editStepDialog(context, step, usual: settings.approach);
+                      final edited = await _editStepDialog(context, step, usual: settings.approach, rest: rest);
                       if (edited != null) await repo.updateStep(edited);
                     },
                     child: const Text('Edit'),
@@ -328,26 +386,29 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 }
 
-/// A compact slider that stretches or shrinks the time on every step at
-/// once. It is relative: after each release it returns to ×1.
-class _StepLengthCard extends StatelessWidget {
-  const _StepLengthCard({
+/// A compact card with a [StretchSlider]: hold it at either end and it keeps
+/// going. Relative: after each release the slider returns to ×1 and the
+/// card's [value] shows what was saved.
+class _StretchCard extends StatelessWidget {
+  const _StretchCard({
+    required this.title,
+    required this.value,
     required this.factor,
-    required this.onChangeStart,
     required this.onChanged,
     required this.onChangeEnd,
+    this.onChangeStart,
   });
 
+  final String title;
+  final String value;
   final double factor;
-  final VoidCallback onChangeStart;
+  final VoidCallback? onChangeStart;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stops = StepScaling.factors;
-    final index = stops.indexOf(factor);
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       child: Padding(
@@ -356,30 +417,25 @@ class _StepLengthCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(child: Text('Step length', style: theme.textTheme.titleSmall)),
-                Text(StepScaling.label(factor), style: theme.textTheme.labelLarge),
-              ],
-            ),
-            Row(
-              children: [
-                Text('Shorter', style: theme.textTheme.bodySmall),
-                Expanded(
-                  child: SizedBox(
-                    height: 56,
-                    child: Slider(
-                      value: (index < 0 ? stops.indexOf(1) : index).toDouble(),
-                      min: 0,
-                      max: (stops.length - 1).toDouble(),
-                      divisions: stops.length - 1,
-                      semanticFormatterCallback: (v) => StepScaling.label(stops[v.round()]),
-                      onChangeStart: (_) => onChangeStart(),
-                      onChanged: (v) => onChanged(stops[v.round()]),
-                      onChangeEnd: (v) => onChangeEnd(stops[v.round()]),
-                    ),
+                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+                Flexible(
+                  child: Text(
+                    value,
+                    style: theme.textTheme.labelLarge,
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Text('Longer', style: theme.textTheme.bodySmall),
               ],
+            ),
+            StretchSlider(
+              factor: factor,
+              semanticsLabel: title,
+              onChanged: (f) {
+                if (factor == 1 && f != 1) onChangeStart?.call();
+                onChanged(f);
+              },
+              onChangeEnd: onChangeEnd,
             ),
           ],
         ),
@@ -472,18 +528,26 @@ class _TextDialogState extends State<_TextDialog> {
 
 /// Edit a step's text and suggested time. [usual] is the approach length
 /// used when a step has no time of its own.
-Future<LadderStep?> _editStepDialog(BuildContext context, LadderStep step, {required Duration usual}) {
+Future<LadderStep?> _editStepDialog(
+  BuildContext context,
+  LadderStep step, {
+  required Duration usual,
+  required Duration rest,
+}) {
   return showDialog<LadderStep>(
     context: context,
-    builder: (_) => _EditStepDialog(step: step, usual: usual),
+    builder: (_) => _EditStepDialog(step: step, usual: usual, rest: rest),
   );
 }
 
 class _EditStepDialog extends StatefulWidget {
-  const _EditStepDialog({required this.step, required this.usual});
+  const _EditStepDialog({required this.step, required this.usual, required this.rest});
 
   final LadderStep step;
   final Duration usual;
+
+  /// The rest before this step, from its place in the ladder.
+  final Duration rest;
 
   @override
   State<_EditStepDialog> createState() => _EditStepDialogState();
@@ -532,6 +596,12 @@ class _EditStepDialogState extends State<_EditStepDialog> {
                 child: const Text('Use the usual length instead'),
               ),
             ),
+          const SizedBox(height: 8),
+          Text(
+            'Rest before this step: ${formatWords(widget.rest)}, from its place in the ladder '
+            '(step ${widget.step.position + 1}). Move the step to change it.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ],
       ),
       actions: [

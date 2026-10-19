@@ -73,6 +73,16 @@ class TaskRepository {
         .write(taskToCompanion(task, clock.now()));
   }
 
+  /// Set the task's own rest unit (null: follow Settings again).
+  Future<void> setRestUnit(String taskId, Duration? unit) async {
+    await (_db.update(_db.tasks)..where((t) => t.id.equals(taskId))).write(
+      TasksCompanion(
+        restUnitSeconds: Value(unit?.inSeconds),
+        updatedAt: Value(clock.now().toUtc()),
+      ),
+    );
+  }
+
   Future<void> archiveTask(String id, {bool archived = true}) async {
     await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(

@@ -228,3 +228,14 @@ as approach first, so a restart cannot flip the order of a round that was alread
 
 The items of a ladder are called steps everywhere a person reads them. The code keeps `rungId`, `rungPosition`
 and `rungText` on sessions and targets, since renaming stored columns buys nothing.
+
+## 30. Each step has its own rest, and it climbs
+
+A step's rest is not derived from the step's length. It follows the step's place in the ladder: the rest unit
+times 1, 1, 2, 3, 5, 8 and then 13 (a Fibonacci climb, capped so a long ladder does not run away). A short step
+late in the ladder still gets the long rest its place earns, and moving a step moves its rest with it; the task
+screen shows the rest on every step, the step sheet says it before starting, and the edit dialog names it. The
+unit is the task's own (`Task.restUnit`, schema 3) or, when the task has none, the rest from Settings, so every
+existing task keeps working and the one-tap "Sit up for 2 minutes" preset keeps its own ratio. Both the rest unit
+and the step lengths are changed with a stretch slider that keeps going while it is held at either end, so the
+range never has to be re-dragged in steps; each release can be undone.

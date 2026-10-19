@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../services/providers.dart';
 import '../tasks/rung_picker_sheet.dart';
@@ -140,6 +141,10 @@ class _StartViewState extends ConsumerState<StartView> {
     await _start(
       config: settings.timerConfig.copyWith(
         approach: choice.step.suggestedDuration ?? settings.approach,
+        rest: LadderRests.restFor(
+          unit: LadderRests.unitFor(choice.task, settings.rest),
+          position: choice.step.position,
+        ),
       ),
       target: ApproachTarget(
         taskId: choice.task.id,

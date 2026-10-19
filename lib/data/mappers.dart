@@ -10,6 +10,7 @@ Task taskFromRow(TaskRow r) => Task(
   createdAt: r.createdAt.toLocal(),
   archived: r.archived,
   sortOrder: r.sortOrder,
+  restUnit: r.restUnitSeconds == null ? null : Duration(seconds: r.restUnitSeconds!),
 );
 
 TasksCompanion taskToCompanion(Task t, DateTime now) => TasksCompanion(
@@ -20,6 +21,7 @@ TasksCompanion taskToCompanion(Task t, DateTime now) => TasksCompanion(
   updatedAt: Value(now.toUtc()),
   archived: Value(t.archived),
   sortOrder: Value(t.sortOrder),
+  restUnitSeconds: Value(t.restUnit?.inSeconds),
 );
 
 LadderStep stepFromRow(LadderStepRow r) => LadderStep(

@@ -1,3 +1,4 @@
+import 'package:depress_o_buster/core/format.dart';
 import 'package:depress_o_buster/core/theme.dart';
 import 'package:depress_o_buster/data/db/database.dart';
 import 'package:depress_o_buster/data/repositories/task_repository.dart';
@@ -117,24 +118,26 @@ void main() {
     await h.pump(tester);
     expect(find.text('Step length'), findsOneWidget);
     expect(find.text('×1'), findsOneWidget);
-    expect(find.text('Shorter'), findsOneWidget);
-    expect(find.text('Longer'), findsOneWidget);
-    expect(find.text('2 min'), findsOneWidget);
-    expect(find.text('5 min'), findsOneWidget);
-    expect(tester.getSize(find.byType(Slider)).height, greaterThanOrEqualTo(AppTheme.minTouchTarget));
+    expect(find.text('Shorter'), findsNWidgets(2), reason: 'step length and rest unit sliders');
+    expect(find.text('Longer'), findsNWidgets(2));
+    // Every step shows its rest (1, 1, 2, 3, 5 units of the 10 min Settings rest) and its time.
+    expect(find.text('Rest 10 min · 1 min'), findsOneWidget);
+    expect(find.text('Rest 10 min · 2 min'), findsOneWidget);
+    expect(find.text('Rest 20 min · 30 sec'), findsOneWidget);
+    expect(find.text('Rest 30 min · 5 min'), findsOneWidget);
+    final sliders = find.byType(Slider);
+    expect(sliders, findsNWidgets(2));
+    expect(tester.getSize(sliders.first).height, greaterThanOrEqualTo(AppTheme.minTouchTarget));
 
-    // Hold the thumb (×1 sits in the middle) and move two stops to the right.
-    final slider = tester.getRect(find.byType(Slider));
+    // Hold the step length thumb (×1 sits in the middle) and move right.
+    final slider = tester.getRect(sliders.first);
     final gesture = await tester.startGesture(slider.center);
     await tester.pump();
-    await gesture.moveBy(const Offset(200, 0));
+    await gesture.moveBy(const Offset(120, 0));
     await tester.pump();
 
-    expect(find.text('×2'), findsOneWidget);
-    expect(find.text('4 min'), findsOneWidget, reason: '2 min shown doubled while held');
-    expect(find.text('10 min'), findsOneWidget);
-    expect(find.text('1 min'), findsOneWidget, reason: '30 sec doubled');
-    expect(find.text('2 min'), findsOneWidget, reason: '1 min doubled');
+    expect(find.text('×1'), findsNothing, reason: 'the label follows the drag');
+    expect(find.text('Rest 10 min · 2 min'), findsNothing, reason: '2 min shown longer while held');
     final held = await h.ladder(tester);
     expect(held[1].suggestedDuration, const Duration(minutes: 2), reason: 'nothing is saved while held');
 
@@ -142,17 +145,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('×1'), findsOneWidget, reason: 'the slider is relative and rests at ×1');
-    expect(find.text('4 min'), findsOneWidget);
-    expect(find.text('10 min'), findsOneWidget);
     final saved = await h.ladder(tester);
-    expect(saved.map((s) => s.suggestedDuration), const [
-      Duration(minutes: 2),
-      Duration(minutes: 4),
-      Duration(minutes: 1),
-      Duration(minutes: 10),
-      null,
-    ]);
+    expect(saved[1].suggestedDuration!, greaterThan(const Duration(minutes: 2)));
+    expect(saved[3].suggestedDuration!, greaterThan(const Duration(minutes: 5)));
+    expect(saved[4].suggestedDuration, isNull, reason: 'an untimed step stays untimed');
     expect(saved.map((s) => s.id), held.map((s) => s.id));
+    expect(find.textContaining('step times changed'), findsOneWidget);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('the rest unit slider rescales every rest and saves the unit on the task', (tester) async {
+    final h = await _harness();
+    await h.pump(tester);
+    expect(find.text('Rest unit'), findsOneWidget);
+    expect(find.textContaining('10 min · 10, 10, 20, 30, 50 min'), findsOneWidget);
+
+    final slider = tester.getRect(find.byType(Slider).last);
+    final gesture = await tester.startGesture(slider.center);
+    await tester.pump();
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    expect(find.text('Rest 10 min · 1 min'), findsNothing, reason: 'rests shrink live while held');
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final task = await tester.runAsync(() => h.repo.getTask(h.task.id));
+    expect(task!.restUnit, isNotNull);
+    expect(task.restUnit!, lessThan(const Duration(minutes: 10)));
+    expect(find.textContaining('Rest unit is now'), findsOneWidget);
+    // The tiles follow the saved unit.
+    final first = LadderRests.restFor(unit: task.restUnit!, position: 0);
+    expect(find.textContaining('Rest ${formatWords(first)} · 1 min'), findsOneWidget);
 
     await h.tearDown(tester);
   });

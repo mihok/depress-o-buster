@@ -392,7 +392,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Sit next to the pile for 5 minutes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rest first, then a 5 min approach here'));
+    // Step 5 of the laundry ladder: five rest units (50 min) before 5 minutes.
+    expect(find.text('Rest 50 min, then 5 min here'), findsOneWidget);
+    await tester.tap(find.text('Rest 50 min, then 5 min here'));
     // Let the sheet and the detail route finish leaving (about 300 ms),
     // one frame per 100 ms so the finished routes are actually removed, and
     // get past the controller's settle window before tapping Stop.
@@ -400,7 +402,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('Rest'), findsOneWidget, reason: 'the rest to get ready comes first');
-    expect(find.textContaining(RegExp(r'^(10:00|9:59)$')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^(50:00|49:59)$')), findsOneWidget, reason: "the step's own rest");
     expect(find.text('Sit next to the pile for 5 minutes'), findsOneWidget);
     await tester.tap(find.text('Stop'));
     await tester.pumpAndSettle();

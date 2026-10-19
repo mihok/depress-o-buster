@@ -13,7 +13,9 @@ is an **approach**: being near the thing, not doing the thing. Over days the rat
   language.
 * XP for every completed interval. The curve favours small and consistent: a 1-minute approach is worth real
   points, a missed day is silent, and coming back after a gap is welcomed, never scolded.
-* Rest is counted down with the same respect as the approach.
+* Each step has its own rest before it, growing with the step's place in the ladder (1, 1, 2, 3, 5, 8, 13 times
+  the task's rest unit) rather than with the step's length. Rest is counted down with the same respect as the
+  approach.
 * Local-first: everything lives in an on-device SQLite database.
 
 This is a timer with a very low floor. It is not a medical device and makes no health claims.
