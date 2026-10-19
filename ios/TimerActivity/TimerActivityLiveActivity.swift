@@ -72,10 +72,12 @@ struct LockScreenView: View {
         Label(view.phaseLabel, systemImage: view.symbol)
           .font(.caption)
           .foregroundStyle(view.accent)
-        Text(view.title)
-          .font(.body)
-          .foregroundStyle(Palette.text)
-          .lineLimit(2)
+        if !view.title.isEmpty {
+          Text(view.title)
+            .font(.body)
+            .foregroundStyle(Palette.text)
+            .lineLimit(2)
+        }
       }
       Spacer(minLength: 8)
       view.countdown
@@ -107,10 +109,12 @@ struct TimerActivityLiveActivity: Widget {
             .foregroundStyle(Palette.text)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          Text(view.title)
-            .font(.caption)
-            .foregroundStyle(Palette.muted)
-            .lineLimit(1)
+          if !view.title.isEmpty {
+            Text(view.title)
+              .font(.caption)
+              .foregroundStyle(Palette.muted)
+              .lineLimit(1)
+          }
         }
       } compactLeading: {
         Image(systemName: view.symbol)

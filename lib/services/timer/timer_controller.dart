@@ -65,6 +65,9 @@ class TimerController extends Notifier<TimerState> {
     String? runId,
   }) async {
     if (state.isActive) return;
+    // A phase that just ended on its own redraws the controls under the
+    // finger; a tap meant for the old button must not start the next thing.
+    if (state.status == TimerStatus.finished && _settling) return;
     if (_alarms.isSupported && !_settings.notificationPermissionAsked) {
       _enqueue(() => _alarms.ensurePermissions());
       unawaited(

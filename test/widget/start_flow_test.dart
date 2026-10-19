@@ -315,6 +315,34 @@ void main() {
     await h.tearDown(tester);
   });
 
+  testWidgets('a tap right after a phase ended by itself does not start the next thing', (tester) async {
+    final h = await _harness(settings: const AppSettings(autoStartNext: false));
+    await h.pump(tester);
+    await tester.tap(find.text('Sit up for 2 minutes'));
+    await tester.pump();
+    await tester.pump();
+    // The rest runs out on its own; "Start the step" appears under the finger.
+    await tester.pump(const Duration(minutes: 10));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Rest complete.'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.tap(find.widgetWithText(FilledButton, 'Start the step'));
+    await tester.pump();
+    expect(find.text('Rest complete.'), findsOneWidget, reason: 'taps settle for 700 ms after the change');
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.widgetWithText(FilledButton, 'Start the step'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Approach'), findsOneWidget);
+    await tester.tap(find.text('Stop'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Stop'));
+    await tester.pump();
+    await tester.pump();
+    await h.tearDown(tester);
+  });
+
   testWidgets('a running timer survives a restart', (tester) async {
     final h = await _harness();
     await h.pump(tester);

@@ -270,7 +270,9 @@ class LocalNotificationsAlarmService implements AlarmService {
       await _liveActivity.show(
         runId: runId,
         phase: phase,
-        title: target == null || target.isEmpty ? phase.label : target.description,
+        // The phase word is the widget's own label and follows the stale
+        // switch; the title is the step, or nothing.
+        title: target == null || target.isEmpty ? '' : target.description,
         endsAt: endsAt,
         nextEndsAt: nextEndsAt,
         nextPhase: nextPhase,
