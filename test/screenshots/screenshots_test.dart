@@ -19,6 +19,7 @@ import 'package:depress_o_buster/services/alarms/alarm_service.dart';
 import 'package:depress_o_buster/services/audio/sound_service.dart';
 import 'package:depress_o_buster/services/providers.dart';
 import 'package:depress_o_buster/services/settings/settings_service.dart';
+import 'package:depress_o_buster/ui/progress/progress_screen.dart';
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -51,9 +52,16 @@ class _GrantedAlarmService extends NoopAlarmService {
 
 /// Real fonts from the Flutter SDK cache, so text renders as it does on a phone.
 Future<void> _loadFonts() async {
-  // <sdk>/bin/cache/dart-sdk/bin/dart -> <sdk>/bin/cache/artifacts/material_fonts
-  final sdkCache = File(Platform.resolvedExecutable).parent.parent.parent;
-  final fonts = Directory('${sdkCache.path}/artifacts/material_fonts');
+  // The test runs on flutter_tester, somewhere under <sdk>/bin/cache/; walk up
+  // to the cache directory that holds artifacts/material_fonts.
+  var dir = File(Platform.resolvedExecutable).parent;
+  while (!Directory('${dir.path}/artifacts/material_fonts').existsSync()) {
+    if (dir.parent.path == dir.path) {
+      throw StateError('material_fonts not found above ${Platform.resolvedExecutable}');
+    }
+    dir = dir.parent;
+  }
+  final fonts = Directory('${dir.path}/artifacts/material_fonts');
   Future<ByteData> bytes(String name) async {
     final data = await File('${fonts.path}/$name').readAsBytes();
     return ByteData.view(data.buffer);
@@ -90,11 +98,17 @@ class _Harness {
     await settle(tester);
   }
 
-  /// Lets real async work (asset decoding, database reads) finish, then draws.
+  /// Lets real async work (asset decoding) finish, then draws a frame.
+  ///
+  /// Only the wait runs with real async: taps and pumps stay in the test's
+  /// fake-async zone so the timer's own timers are fake and `pump(duration)`
+  /// moves them. A timer created inside `runAsync` would be real and never
+  /// fire in a test.
   static Future<void> settle(WidgetTester tester, [int rounds = 3]) async {
     for (var i = 0; i < rounds; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      // Advance fake time too, so route transitions and sheets finish animating.
+      await tester.pump(const Duration(milliseconds: 200));
     }
   }
 }
@@ -183,7 +197,7 @@ Future<_Harness> _harness({
 }
 
 Future<void> _shot(WidgetTester tester, String name) async {
-  await tester.runAsync(() => _Harness.settle(tester, 2));
+  await _Harness.settle(tester, 2);
   await expectLater(find.byType(MaterialApp), matchesGoldenFile('../../docs/screenshots/$name.png'));
 }
 
@@ -207,115 +221,94 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
+  Future<void> tapText(WidgetTester tester, String text, {int rounds = 3}) async {
+    await tester.tap(find.text(text).first);
+    await _Harness.settle(tester, rounds);
+  }
+
+  Future<void> leave(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  }
+
   testWidgets('dark: start, timer, tasks, breakdown, progress, history, settings', (tester) async {
     await phone(tester);
-    final h = await tester.runAsync(_harness) as _Harness;
-    await tester.runAsync(() => h.pump(tester));
+    final h = await _harness();
+    await h.pump(tester);
     await _shot(tester, '01-start');
 
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Sit up for 2 minutes'));
-      await _Harness.settle(tester);
-      await tester.pump(const Duration(seconds: 7));
-      await tester.pump();
-    });
+    await tapText(tester, 'Sit up for 2 minutes');
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pump();
     await _shot(tester, '02-approach');
 
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Done early'));
-      await _Harness.settle(tester);
-      await tester.pump(const Duration(milliseconds: 900));
-      await tester.pump();
-    });
+    await tapText(tester, 'Done early');
+    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pump();
     await _shot(tester, '03-rest');
 
-    await tester.runAsync(() async {
-      await tester.pump(const Duration(minutes: 10));
-      await _Harness.settle(tester);
-    });
+    await tester.pump(const Duration(minutes: 10));
+    await _Harness.settle(tester);
     await _shot(tester, '04-rest-complete');
 
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Done for now'));
-      await _Harness.settle(tester);
-      await tester.tap(find.text('Tasks'));
-      await _Harness.settle(tester);
-    });
+    await tapText(tester, 'Done for now');
+    await tapText(tester, 'Tasks');
     await _shot(tester, '05-tasks');
 
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Shower'));
-      await _Harness.settle(tester);
-    });
+    await tapText(tester, 'Shower');
     await _shot(tester, '06-ladder');
 
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Break this down smaller'));
-      await _Harness.settle(tester);
-      await tester.tap(find.text('Break it down'));
-      await _Harness.settle(tester, 6);
-    });
+    // Shrink one rung: the sheet then offers steps that are not on the ladder.
+    await tapText(tester, 'Stand in the bathroom doorway');
+    await tapText(tester, 'Break this step down smaller');
+    await tapText(tester, 'Break it down', rounds: 6);
     await _shot(tester, '07-breakdown');
 
-    await tester.runAsync(() async {
-      Navigator.of(tester.element(find.text('Break this down smaller').last)).pop();
+    while (find.byType(BottomSheet).evaluate().isNotEmpty) {
+      Navigator.of(tester.element(find.byType(BottomSheet).first)).pop();
       await _Harness.settle(tester);
-      Navigator.of(tester.element(find.text('Shower').first)).pop();
-      await _Harness.settle(tester);
-      await tester.tap(find.text('Progress'));
-      await _Harness.settle(tester);
-    });
+    }
+    Navigator.of(tester.element(find.text('Shower').first)).pop();
+    await _Harness.settle(tester);
+    await tapText(tester, 'Progress');
     await _shot(tester, '08-progress');
 
-    await tester.runAsync(() async {
-      await tester.tap(find.text('All history'));
-      await _Harness.settle(tester);
-    });
+    // "All history" sits below the fold of a lazy list.
+    await tester.scrollUntilVisible(
+      find.text('All history'),
+      200,
+      scrollable: find.descendant(of: find.byType(ProgressScreen), matching: find.byType(Scrollable)),
+    );
+    await _Harness.settle(tester);
+    await tapText(tester, 'All history');
     await _shot(tester, '09-history');
 
-    await tester.runAsync(() async {
-      Navigator.of(tester.element(find.text('History'))).pop();
-      await _Harness.settle(tester);
-      await tester.tap(find.text('Settings'));
-      await _Harness.settle(tester);
-    });
+    Navigator.of(tester.element(find.text('History'))).pop();
+    await _Harness.settle(tester);
+    await tapText(tester, 'Settings');
     await _shot(tester, '10-settings');
-
-    await tester.runAsync(() async {
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
-    });
+    await leave(tester);
   });
 
-  testWidgets('light: start', (tester) async {
+  testWidgets('light: start and progress', (tester) async {
     await phone(tester);
-    final h = await tester.runAsync(() => _harness(theme: AppThemeMode.light)) as _Harness;
-    await tester.runAsync(() => h.pump(tester));
+    final h = await _harness(theme: AppThemeMode.light);
+    await h.pump(tester);
     await _shot(tester, '11-start-light');
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Progress'));
-      await _Harness.settle(tester);
-    });
+    await tapText(tester, 'Progress');
     await _shot(tester, '12-progress-light');
-    await tester.runAsync(() async {
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
-    });
+    await leave(tester);
   });
 
   testWidgets('dark: start after a few quiet days, and empty states', (tester) async {
     await phone(tester);
-    final h = await tester.runAsync(() => _harness(history: false, quietDays: 4)) as _Harness;
-    await tester.runAsync(() => h.pump(tester));
+    final h = await _harness(history: false, quietDays: 4);
+    await h.pump(tester);
     await _shot(tester, '13-start-welcome-back');
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Progress'));
-      await _Harness.settle(tester);
-    });
+    await tapText(tester, 'Progress');
     await _shot(tester, '14-progress-empty');
-    await tester.runAsync(() async {
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
-    });
+    await tapText(tester, 'All history');
+    await _shot(tester, '15-history-empty');
+    await leave(tester);
   });
 }

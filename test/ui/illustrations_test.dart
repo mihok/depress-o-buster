@@ -72,8 +72,10 @@ void main() {
             MaterialApp(
               theme: ThemeData(brightness: brightness),
               home: Scaffold(
-                body: ListView(
-                  children: [for (final k in Illustration.values) AppIllustration(k, height: 80)],
+                // A Wrap, not a ListView: every picture must be built, not just
+                // the ones a lazy list keeps on screen.
+                body: Wrap(
+                  children: [for (final k in Illustration.values) AppIllustration(k, height: 40)],
                 ),
               ),
             ),
