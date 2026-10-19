@@ -59,7 +59,7 @@ class TimerView extends ConsumerWidget {
                     if (!finished) ...[
                       AppIllustration(
                         state.isApproach ? Illustration.pathAhead : Illustration.restMoon,
-                        height: 112,
+                        height: 132,
                         opacity: state.isPaused ? 0.6 : 1,
                       ),
                       const SizedBox(height: 20),
@@ -135,7 +135,7 @@ class _FinishedPanelState extends ConsumerState<_FinishedPanel> {
               : widget.state.phase.isRest
                   ? Illustration.stoneDawn
                   : Illustration.rippleDone,
-          height: 112,
+          height: 132,
         ),
         const SizedBox(height: 20),
         Text(
