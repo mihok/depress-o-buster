@@ -24,6 +24,7 @@ class TimerStateCodec {
     'pausedAt': s.pausedAt?.toUtc().toIso8601String(),
     'cycleIndex': s.cycleIndex,
     'snoozeCount': s.snoozeCount,
+    'moodBefore': s.moodBefore,
   };
 
   static TimerState fromJson(Map<String, dynamic> j) {
@@ -45,6 +46,7 @@ class TimerStateCodec {
       pausedAt: _date(j['pausedAt']),
       cycleIndex: (j['cycleIndex'] as num?)?.toInt() ?? 0,
       snoozeCount: (j['snoozeCount'] as num?)?.toInt() ?? 0,
+      moodBefore: j['moodBefore'] as String?,
     );
   }
 
@@ -54,7 +56,8 @@ class TimerStateCodec {
     'longRestMs': c.longRest?.inMilliseconds,
     'cyclesBeforeLongRest': c.cyclesBeforeLongRest,
     'snoozeByMs': c.snoozeBy.inMilliseconds,
-    'autoStartRest': c.autoStartRest,
+    'restFirst': c.restFirst,
+    'autoStartNext': c.autoStartNext,
   };
 
   static TimerConfig configFromJson(Map<String, dynamic> j) => TimerConfig(
@@ -67,7 +70,9 @@ class TimerStateCodec {
     snoozeBy: Duration(
       milliseconds: (j['snoozeByMs'] as num?)?.toInt() ?? 120000,
     ),
-    autoStartRest: j['autoStartRest'] as bool? ?? true,
+    // Timers saved before rest-first existed ran approach first.
+    restFirst: j['restFirst'] as bool? ?? false,
+    autoStartNext: j['autoStartNext'] as bool? ?? j['autoStartRest'] as bool? ?? true,
   );
 
   static Map<String, dynamic> targetToJson(ApproachTarget t) => {

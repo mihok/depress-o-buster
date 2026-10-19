@@ -141,7 +141,7 @@ class ProgressScreen extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   title: Text(r.taskTitle),
-                  subtitle: Text('Highest rung so far: ${r.bestRung + 1}. ${r.bestRungText}'),
+                  subtitle: Text('Highest step so far: ${r.bestRung + 1}. ${r.bestRungText}'),
                   trailing: Text('${r.attempts}×', style: theme.textTheme.bodySmall),
                 ),
               ),

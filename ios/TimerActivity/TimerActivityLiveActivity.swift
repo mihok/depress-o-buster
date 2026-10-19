@@ -11,42 +11,45 @@ enum Palette {
   static let muted = Color(red: 0x9A / 255.0, green: 0xA3 / 255.0, blue: 0xAB / 255.0)
 }
 
-/// What to show for the activity's current state. When an approach's
-/// activity has gone stale (the approach ended while the app was suspended)
-/// and a rest follows, the view switches to the rest countdown by itself.
+/// What to show for the activity's current state. When the activity has
+/// gone stale (the phase ended while the app was suspended) and another
+/// phase follows on its own, the view switches to that countdown by itself:
+/// the step after its rest, or the rest after its approach.
 struct PhaseView {
   let context: ActivityViewContext<TimerActivityAttributes>
 
   var isPaused: Bool { context.state.pausedAt != nil }
 
-  var showingRest: Bool {
-    context.state.phase != "approach"
-      || (!isPaused && context.isStale && context.state.restEndsAt != nil)
+  /// True once the current phase ran out and a following one is known.
+  var showingNext: Bool {
+    !isPaused && context.isStale && context.state.nextEndsAt != nil
   }
 
-  /// The phase being shown: the following rest once an approach went stale.
+  /// The phase being shown: the following one once the current went stale.
   var shownPhase: String {
-    if context.state.phase == "approach" && showingRest {
-      return context.state.restPhase ?? "rest"
+    if showingNext {
+      return context.state.nextPhase ?? "rest"
     }
     return context.state.phase
   }
 
+  var isApproach: Bool { shownPhase == "approach" }
+
   var phaseLabel: String {
-    let label = showingRest ? (shownPhase == "longRest" ? "Long rest" : "Rest") : "Approach"
+    let label = isApproach ? "Approach" : (shownPhase == "longRest" ? "Long rest" : "Rest")
     return isPaused ? "\(label), paused" : label
   }
 
   var endsAt: Date {
-    if context.state.phase == "approach" && showingRest {
-      return context.state.restEndsAt ?? context.state.endsAt
+    if showingNext {
+      return context.state.nextEndsAt ?? context.state.endsAt
     }
     return context.state.endsAt
   }
 
-  var symbol: String { showingRest ? "moon.zzz" : "arrow.up.right" }
+  var symbol: String { isApproach ? "arrow.up.right" : "moon.zzz" }
 
-  var accent: Color { showingRest ? Palette.rest : Palette.approach }
+  var accent: Color { isApproach ? Palette.approach : Palette.rest }
 
   var title: String { context.state.title }
 
@@ -69,10 +72,12 @@ struct LockScreenView: View {
         Label(view.phaseLabel, systemImage: view.symbol)
           .font(.caption)
           .foregroundStyle(view.accent)
-        Text(view.title)
-          .font(.body)
-          .foregroundStyle(Palette.text)
-          .lineLimit(2)
+        if !view.title.isEmpty {
+          Text(view.title)
+            .font(.body)
+            .foregroundStyle(Palette.text)
+            .lineLimit(2)
+        }
       }
       Spacer(minLength: 8)
       view.countdown
@@ -104,10 +109,12 @@ struct TimerActivityLiveActivity: Widget {
             .foregroundStyle(Palette.text)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          Text(view.title)
-            .font(.caption)
-            .foregroundStyle(Palette.muted)
-            .lineLimit(1)
+          if !view.title.isEmpty {
+            Text(view.title)
+              .font(.caption)
+              .foregroundStyle(Palette.muted)
+              .lineLimit(1)
+          }
         }
       } compactLeading: {
         Image(systemName: view.symbol)

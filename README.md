@@ -1,13 +1,13 @@
 # Depress-o-buster
 
-![Depress-o-buster: a stone in still water](docs/images/banner.svg)
+![Depress-o-buster: a pebble in still water](docs/images/banner.png)
 
 An inverted-Pomodoro timer for days when the hard part is starting. Instead of 25 minutes of work and 5 of rest,
 a session looks like "5 minutes sitting next to the laundry pile, then 30 minutes back in bed". The work interval
 is an **approach**: being near the thing, not doing the thing. Over days the ratio inverts on its own.
 
 * One tap from open to running. No account, no onboarding, no mandatory setup.
-* Every task has a ladder of rungs from "think about it for a minute" up to the whole task. Any rung is a valid
+* Every task has a ladder of steps from "think about it for a minute" up to the whole task. Any step is a valid
   place to start, in any order.
 * "Break this down smaller" asks Claude (or the built-in offline ladders) for even smaller steps, in neutral
   language.
@@ -22,9 +22,9 @@ This is a timer with a very low floor. It is not a medical device and makes no h
 
 Rendered from the real widgets by a test (see `docs/VISUALS.md`), so they match the build exactly.
 
-| Start | Approach | Rest | Progress |
+| Start | Rest first | Approach | Progress |
 |:-:|:-:|:-:|:-:|
-| ![Start](docs/screenshots/01-start.png) | ![Approach running](docs/screenshots/02-approach.png) | ![Rest running](docs/screenshots/03-rest.png) | ![Progress](docs/screenshots/08-progress.png) |
+| ![Start](docs/screenshots/01-start.png) | ![The rest to get ready](docs/screenshots/02-rest-first.png) | ![Approach running](docs/screenshots/03-approach.png) | ![Progress](docs/screenshots/08-progress.png) |
 
 | Tasks | Ladder | Break it down | Light theme |
 |:-:|:-:|:-:|:-:|
@@ -70,12 +70,12 @@ flutter build ios --no-codesign    # needs macOS
 
 1. Open the app. Tap **Sit up for 2 minutes**. That is the whole flow.
 2. Or pick a preset ratio (Edge of bed 3/20, Laundry proximity 5/30, Classic 25/5, ...) and start, or choose a
-   task rung from the Tasks tab.
+   step of a task from the Tasks tab.
 3. While an approach runs you can add time (snooze), finish early, pause, or stop. Stopping is logged as
    "Stopped early" and still earns XP for starting.
 4. Rest starts on its own when the approach ends (configurable). When rest ends you can go another round or stop
    for now.
-5. Progress shows your level, consistency, longest approach, approaches per day and the highest rung reached on
+5. Progress shows your level, consistency, longest approach, approaches per day and the highest step reached on
    each task. History lists every interval.
 
 ## Adding a Claude API key

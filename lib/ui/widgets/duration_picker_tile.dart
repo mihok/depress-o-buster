@@ -37,17 +37,47 @@ Future<Duration?> showDurationDialog(
   required String title,
   required Duration initial,
 }) {
-  final minutes = TextEditingController(text: '${initial.inMinutes}');
-  final seconds = TextEditingController(text: '${initial.inSeconds % 60}');
   return showDialog<Duration>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
+    builder: (_) => _DurationDialog(title: title, initial: initial),
+  );
+}
+
+/// The controllers live with the dialog's state: the focused field rebuilds
+/// once more while the route fades out, so disposing them as soon as the
+/// dialog's future completes is too early.
+class _DurationDialog extends StatefulWidget {
+  const _DurationDialog({required this.title, required this.initial});
+
+  final String title;
+  final Duration initial;
+
+  @override
+  State<_DurationDialog> createState() => _DurationDialogState();
+}
+
+class _DurationDialogState extends State<_DurationDialog> {
+  late final TextEditingController _minutes =
+      TextEditingController(text: '${widget.initial.inMinutes}');
+  late final TextEditingController _seconds =
+      TextEditingController(text: '${widget.initial.inSeconds % 60}');
+
+  @override
+  void dispose() {
+    _minutes.dispose();
+    _seconds.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
       content: Row(
         children: [
           Expanded(
             child: TextField(
-              controller: minutes,
+              controller: _minutes,
               autofocus: true,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'min'),
@@ -56,7 +86,7 @@ Future<Duration?> showDurationDialog(
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
-              controller: seconds,
+              controller: _seconds,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'sec'),
             ),
@@ -64,20 +94,17 @@ Future<Duration?> showDurationDialog(
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
-            final m = int.tryParse(minutes.text.trim()) ?? 0;
-            final s = int.tryParse(seconds.text.trim()) ?? 0;
+            final m = int.tryParse(_minutes.text.trim()) ?? 0;
+            final s = int.tryParse(_seconds.text.trim()) ?? 0;
             final total = Duration(minutes: m.clamp(0, 24 * 60), seconds: s.clamp(0, 59));
-            Navigator.pop(ctx, total.inSeconds < 1 ? const Duration(seconds: 1) : total);
+            Navigator.pop(context, total.inSeconds < 1 ? const Duration(seconds: 1) : total);
           },
           child: const Text('Save'),
         ),
       ],
-    ),
-  ).whenComplete(() {
-    minutes.dispose();
-    seconds.dispose();
-  });
+    );
+  }
 }

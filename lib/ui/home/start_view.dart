@@ -82,7 +82,9 @@ class _StartViewState extends ConsumerState<StartView> {
           ],
           _BigStartButton(
             title: 'Sit up for 2 minutes',
-            subtitle: 'then rest for ${formatWords(sitUpRest)}',
+            subtitle: settings.restFirst
+                ? 'after ${formatWords(sitUpRest)} of rest to get ready'
+                : 'then rest for ${formatWords(sitUpRest)}',
             onPressed: () => _start(
               config: settings.timerConfig.copyWith(
                 approach: _sitUpApproach,
@@ -106,17 +108,24 @@ class _StartViewState extends ConsumerState<StartView> {
           const SizedBox(height: 12),
           FilledButton.tonal(
             onPressed: () => _start(config: settings.timerConfig, target: null),
-            child: Text('Start a ${formatWords(settings.approach)} approach'),
+            child: Text(
+              settings.restFirst
+                  ? 'Rest ${formatWords(settings.rest)}, then a ${formatWords(settings.approach)} approach'
+                  : 'Start a ${formatWords(settings.approach)} approach',
+            ),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _pickRung,
             icon: const Icon(Icons.stairs_outlined),
-            label: const Text('Pick a task rung'),
+            label: const Text('Pick a step from a task'),
           ),
           const SizedBox(height: 28),
           Text(
-            'An approach is being near the thing, not doing the thing. Rest is part of the method.',
+            settings.restFirst
+                ? 'An approach is being near the thing, not doing the thing. The rest comes first: '
+                      'time to get ready, then the chime says it is time for the step.'
+                : 'An approach is being near the thing, not doing the thing. Rest is part of the method.',
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -198,8 +207,12 @@ class _RatioCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Approach ${formatWords(s.approach)} · Rest ${formatWords(s.rest)}'
-              '${s.longRest != null && s.cyclesBeforeLongRest > 0 ? ' · Long rest ${formatWords(s.longRest!)} every ${s.cyclesBeforeLongRest}' : ''}',
+              (s.restFirst
+                      ? 'Rest ${formatWords(s.rest)} · Approach ${formatWords(s.approach)}'
+                      : 'Approach ${formatWords(s.approach)} · Rest ${formatWords(s.rest)}') +
+                  (s.longRest != null && s.cyclesBeforeLongRest > 0
+                      ? ' · Long rest ${formatWords(s.longRest!)} every ${s.cyclesBeforeLongRest}'
+                      : ''),
               style: theme.textTheme.titleMedium,
             ),
             if (presets.isNotEmpty) ...[

@@ -8,15 +8,20 @@ import 'ripple_celebration.dart';
 
 /// One calm line about the last logged interval: "+36 XP · First one today".
 ///
-/// A first-ever interval, a new personal rung, or a level up also gets one
-/// slow ripple behind the line. That is the whole celebration.
+/// A first-ever interval, a new personal step, or a level up also gets one
+/// slow ripple behind the line. That is the whole celebration. With [runId]
+/// set, only an interval from that round is shown, so a new round does not
+/// open with the previous round's line.
 class LoggedFeedback extends ConsumerWidget {
-  const LoggedFeedback({super.key});
+  const LoggedFeedback({super.key, this.runId});
+
+  final String? runId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logged = ref.watch(lastLoggedProvider);
     if (logged == null) return const SizedBox.shrink();
+    if (runId != null && logged.session.runId != runId) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final bonuses = logged.award.bonuses
         .where((b) => b != XpBonus.firstEver && b != XpBonus.welcomeBack)

@@ -82,13 +82,13 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Any rung is a fine place to start.', style: theme.textTheme.bodySmall),
+              child: Text('Any step is a fine place to start.', style: theme.textTheme.bodySmall),
             ),
             const SizedBox(height: 8),
             if (ladder.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('This task has no rungs yet.'),
+                child: Text('This task has no steps yet.'),
               ),
             for (final step in ladder)
               ListTile(

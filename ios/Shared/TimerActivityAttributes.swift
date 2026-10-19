@@ -12,12 +12,13 @@ struct TimerActivityAttributes: ActivityAttributes {
     var title: String
     /// When the current phase ends.
     var endsAt: Date
-    /// When the rest that follows this approach ends. Lets the lock screen
-    /// switch to the rest on its own if the app is suspended when the
-    /// approach ends (the activity goes stale at `endsAt`).
-    var restEndsAt: Date?
-    /// Which rest follows: "rest" or "longRest". Set with `restEndsAt`.
-    var restPhase: String?
+    /// When the phase that follows this one on its own ends. Lets the lock
+    /// screen switch to it by itself if the app is suspended when the current
+    /// phase ends (the activity goes stale at `endsAt`).
+    var nextEndsAt: Date?
+    /// Which phase follows: "approach", "rest" or "longRest". Set with
+    /// `nextEndsAt`.
+    var nextPhase: String?
     /// Set while the timer is paused: the countdown freezes at this instant.
     var pausedAt: Date?
   }

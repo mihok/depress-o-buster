@@ -6,49 +6,56 @@ import '../../core/theme.dart';
 /// Every illustration in the app, by the file that draws it.
 ///
 /// The files live in `assets/illustrations/` and follow the contract in
-/// `docs/VISUALS.md`: one stone-and-water motif, authored for the dark theme in
-/// six palette colours that [PaletteMapper] swaps for the light theme at
-/// runtime. Replace an SVG with the same name and nothing else changes.
+/// `docs/VISUALS.md`: one stone-and-water motif. Today every slot is a
+/// painting (a PNG prepared from `assets/images/` by
+/// `tool/brand/prepare_illustration.py`); a vector slot would be an SVG in
+/// the palette that [PaletteMapper] swaps for the light theme. Replace a
+/// file with the same name and nothing else changes.
 enum Illustration {
-  /// One stone in still water. The Start tab, above the one-tap button.
-  stoneStill('stone_still', 'A stone resting in still water'),
+  /// A pebble at rest in still water. The Start tab, above the one-tap button.
+  stoneStill('stone_still', 'A pebble resting in still water', raster: true),
 
-  /// The stone with soft light on the horizon. After a quiet stretch, and
-  /// when a rest completes.
-  stoneDawn('stone_dawn', 'A stone in still water with soft light on the horizon'),
+  /// The upright pebble. After a quiet stretch, and when a rest completes.
+  stoneDawn('stone_dawn', 'A pebble standing in still water', raster: true),
 
-  /// A near stone and two further ones. The running approach.
-  pathAhead('path_ahead', 'Stepping stones leading away across still water'),
+  /// Three painted pebbles stepping away across water. The running approach.
+  pathAhead('path_ahead', 'Three pebbles stepping away across still water', raster: true),
 
-  /// A thin moon over water, no stone. The running rest.
-  restMoon('rest_moon', 'A thin moon over still water'),
+  /// A painted moon over water, no stone. The running rest.
+  restMoon('rest_moon', 'A moon over still water', raster: true),
 
-  /// The stone with rings spreading from it. An approach just completed.
-  rippleDone('ripple_done', 'A stone with rings spreading from it'),
+  /// The pebble settled in its rings. An approach just completed.
+  rippleDone('ripple_done', 'A pebble settled in still water', raster: true),
 
-  /// Three small stones in a loose line. The Tasks tab with no tasks.
-  stonesEmpty('stones_empty', 'Three small stones in a line across water'),
+  /// The upright pebble. The Tasks tab with no tasks.
+  stonesEmpty('stones_empty', 'A pebble standing in still water', raster: true),
 
-  /// Water only. Empty history and progress.
-  waterQuiet('water_quiet', 'Still water with one faint ring'),
+  /// The pebble at rest. Empty history and progress.
+  waterQuiet('water_quiet', 'A pebble resting in still water', raster: true),
 
-  /// A stone above three pebbles. The "break this down smaller" sheet.
-  stoneSplit('stone_split', 'A stone above three smaller pebbles'),
+  /// The upright pebble. The "break this down smaller" sheet.
+  stoneSplit('stone_split', 'A pebble standing in still water', raster: true),
 
-  /// The brand mark, with its own background. Fixed colours in both themes.
-  mark('mark', 'The Depress-o-buster mark: a stone in still water', folder: 'brand');
+  /// The app icon: the painted pebble on its own background. Fixed colours
+  /// in both themes.
+  mark('mark', 'The Depress-o-buster icon: a pebble in still water', folder: 'brand', raster: true);
 
-  const Illustration(this.file, this.description, {this.folder = 'illustrations'});
+  const Illustration(this.file, this.description, {this.folder = 'illustrations', this.raster = false});
 
   final String file;
   final String description;
   final String folder;
 
-  String get assetPath => 'assets/$folder/$file.svg';
+  /// A painted PNG rather than a vector. Paintings carry their own colours
+  /// (and an outline that reads on both backgrounds), so one file serves
+  /// both themes; see `tool/brand/prepare_illustration.py`.
+  final bool raster;
 
-  /// The mark carries its own background, so it keeps the brand colours
-  /// whatever the theme. Everything else follows the theme.
-  bool get followsTheme => this != Illustration.mark;
+  String get assetPath => 'assets/$folder/$file.${raster ? 'png' : 'svg'}';
+
+  /// Vector illustrations are recoloured for the light theme. Paintings and
+  /// the mark keep their own colours.
+  bool get followsTheme => !raster;
 }
 
 /// Swaps the dark-theme authoring palette for the light theme's.
@@ -102,16 +109,30 @@ class AppIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final picture = SvgPicture.asset(
-      kind.assetPath,
-      height: height,
-      fit: BoxFit.contain,
-      colorMapper: kind.followsTheme ? PaletteMapper.of(context) : null,
-      excludeFromSemantics: decorative,
-      semanticsLabel: decorative ? null : kind.description,
-      // Keep the layout stable while the asset decodes.
-      placeholderBuilder: (_) => SizedBox(height: height),
-    );
+    final Widget picture;
+    if (kind.raster) {
+      // Decoded at a sensible size: the 1024 px icon is shown at 56 px.
+      final pixels = (height * MediaQuery.devicePixelRatioOf(context)).round();
+      picture = Image.asset(
+        kind.assetPath,
+        height: height,
+        fit: BoxFit.contain,
+        cacheHeight: pixels,
+        excludeFromSemantics: decorative,
+        semanticLabel: decorative ? null : kind.description,
+      );
+    } else {
+      picture = SvgPicture.asset(
+        kind.assetPath,
+        height: height,
+        fit: BoxFit.contain,
+        colorMapper: kind.followsTheme ? PaletteMapper.of(context) : null,
+        excludeFromSemantics: decorative,
+        semanticsLabel: decorative ? null : kind.description,
+        // Keep the layout stable while the asset decodes.
+        placeholderBuilder: (_) => SizedBox(height: height),
+      );
+    }
     final faded = opacity >= 1 ? picture : Opacity(opacity: opacity, child: picture);
     return Center(child: faded);
   }

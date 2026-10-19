@@ -76,10 +76,23 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (d) => notifier.update((s) => s.copyWith(snoozeBy: d)),
           ),
           SwitchListTile(
-            title: const Text('Start rest automatically'),
-            subtitle: const Text('When the approach ends, rest begins on its own.'),
-            value: settings.autoStartRest,
-            onChanged: (v) => notifier.update((s) => s.copyWith(autoStartRest: v)),
+            title: const Text('Rest before the step'),
+            subtitle: const Text(
+              'Each round opens with the rest, so there is time to get ready. '
+              'The chime says when it is time for the step.',
+            ),
+            value: settings.restFirst,
+            onChanged: (v) => notifier.update((s) => s.copyWith(restFirst: v)),
+          ),
+          SwitchListTile(
+            title: Text(settings.restFirst ? 'Start the step automatically' : 'Start rest automatically'),
+            subtitle: Text(
+              settings.restFirst
+                  ? 'When the rest ends, the step begins on its own.'
+                  : 'When the approach ends, rest begins on its own.',
+            ),
+            value: settings.autoStartNext,
+            onChanged: (v) => notifier.update((s) => s.copyWith(autoStartNext: v)),
           ),
           _Section('Presets'),
           for (final p in presets)
@@ -174,48 +187,66 @@ class SettingsScreen extends ConsumerWidget {
               onSelectionChanged: (sel) => notifier.update((s) => s.copyWith(themeMode: sel.first)),
             ),
           ),
-          _Section('AI breakdown'),
-          const _ApiKeyTile(),
-          ListTile(
-            title: const Text('Model'),
-            subtitle: Text(settings.breakdownModel),
-            trailing: const Icon(Icons.edit_outlined),
-            onTap: () async {
-              final controller = TextEditingController(text: settings.breakdownModel);
-              final value = await showDialog<String>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Model id'),
-                  content: TextField(
-                    controller: controller,
-                    autofocus: true,
-                    decoration: const InputDecoration(hintText: 'claude-opus-5-5'),
-                  ),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                    FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
-                  ],
-                ),
-              );
-              controller.dispose();
-              if (value != null && value.trim().isNotEmpty) {
-                await notifier.update((s) => s.copyWith(breakdownModel: value.trim()));
-              }
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Use Claude when a key is set'),
-            subtitle: const Text('Off: always use the built-in ladders.'),
-            value: settings.preferClaude,
-            onChanged: (v) => notifier.update((s) => s.copyWith(preferClaude: v)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: Text(
-              'The key is stored in the device keychain and only sent to the API you configure. '
-              'Breakdowns are optional; the timer never waits for them.',
-              style: theme.textTheme.bodySmall,
+          // Claude-assisted breakdown is optional and rarely revisited, so it
+          // rolls out from one tile instead of taking a section of its own.
+          const SizedBox(height: 16),
+          ExpansionTile(
+            title: const Text('Advanced'),
+            subtitle: Text(
+              'Claude-assisted breakdown: model and API key',
+              // ExpansionTile paints its whole header in one text colour, which
+              // would brighten this line. Keep it as muted as every other subtitle.
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
             ),
+            // No divider lines and no tint: the tile reads like the rest of the
+            // screen, and its padding comes from the same ListTileTheme.
+            shape: const Border(),
+            collapsedShape: const Border(),
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _ApiKeyTile(),
+              ListTile(
+                title: const Text('Model'),
+                subtitle: Text(settings.breakdownModel),
+                trailing: const Icon(Icons.edit_outlined),
+                onTap: () async {
+                  final controller = TextEditingController(text: settings.breakdownModel);
+                  final value = await showDialog<String>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Model id'),
+                      content: TextField(
+                        controller: controller,
+                        autofocus: true,
+                        decoration: const InputDecoration(hintText: 'claude-opus-5-5'),
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
+                      ],
+                    ),
+                  );
+                  controller.dispose();
+                  if (value != null && value.trim().isNotEmpty) {
+                    await notifier.update((s) => s.copyWith(breakdownModel: value.trim()));
+                  }
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Use Claude when a key is set'),
+                subtitle: const Text('Off: always use the built-in ladders.'),
+                value: settings.preferClaude,
+                onChanged: (v) => notifier.update((s) => s.copyWith(preferClaude: v)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Text(
+                  'The key is stored in the device keychain and only sent to the API you configure. '
+                  'Breakdowns are optional; the timer never waits for them.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
           ),
           _Section('Alarms'),
           const _AlarmStatus(),

@@ -112,6 +112,71 @@ void main() {
       expect((await tasks.ladder(task.id)).first.text, 'first');
     });
 
+    test('restoreStep puts a removed step back with its id, position and time', () async {
+      final task = await tasks.createTask('Shower', ladder: const [
+        MicroStep('a'),
+        MicroStep('b', suggestedDuration: Duration(seconds: 90)),
+        MicroStep('c'),
+      ]);
+      final before = await tasks.ladder(task.id);
+      final b = before[1];
+      await tasks.deleteStep(task.id, b.id);
+      expect((await tasks.ladder(task.id)).map((s) => s.id), [before[0].id, before[2].id]);
+
+      await tasks.restoreStep(task.id, b);
+      expect(await tasks.ladder(task.id), before, reason: 'same id, position, text and time');
+
+      await tasks.restoreStep(task.id, b);
+      expect(await tasks.ladder(task.id), before, reason: 'restoring twice does not duplicate');
+
+      // A remembered position past the end lands at the end.
+      await tasks.deleteStep(task.id, before[0].id);
+      await tasks.restoreStep(task.id, before[0].copyWith(position: 9));
+      final moved = await tasks.ladder(task.id);
+      expect(moved.map((s) => s.id), [before[1].id, before[2].id, before[0].id]);
+      expect(moved.map((s) => s.position), [0, 1, 2]);
+    });
+
+    test('scaleStepDurations scales every timed step at once and rounds', () async {
+      final task = await tasks.createTask('Shower', ladder: const [
+        MicroStep('a', suggestedDuration: Duration(seconds: 30)),
+        MicroStep('b', suggestedDuration: Duration(minutes: 1)),
+        MicroStep('c'),
+        MicroStep('d', suggestedDuration: Duration(minutes: 5)),
+        MicroStep('e', suggestedDuration: Duration(minutes: 7)),
+      ]);
+      final before = await tasks.ladder(task.id);
+
+      expect(
+        await tasks.scaleStepDurations(task.id, 0.5),
+        3,
+        reason: 'a 30-second step cannot shrink and an untimed step stays untimed',
+      );
+      final half = await tasks.ladder(task.id);
+      expect(half.map((s) => s.suggestedDuration), const [
+        Duration(seconds: 30),
+        Duration(seconds: 30),
+        null,
+        Duration(minutes: 2, seconds: 30),
+        Duration(minutes: 3, seconds: 30),
+      ]);
+      expect(half.map((s) => s.id), before.map((s) => s.id));
+      expect(half.map((s) => s.text), ['a', 'b', 'c', 'd', 'e']);
+      expect(half.map((s) => s.position), [0, 1, 2, 3, 4]);
+
+      expect(await tasks.scaleStepDurations(task.id, 3), 4);
+      expect((await tasks.ladder(task.id)).map((s) => s.suggestedDuration), const [
+        Duration(minutes: 1, seconds: 30),
+        Duration(minutes: 1, seconds: 30),
+        null,
+        Duration(minutes: 8),
+        Duration(minutes: 11),
+      ]);
+
+      expect(await tasks.scaleStepDurations(task.id, 1), 0, reason: 'nothing changes, nothing is written');
+      expect(await tasks.watchLadder(task.id).first, await tasks.ladder(task.id));
+    });
+
     test('archive hides, delete cascades to steps', () async {
       final task = await tasks.createTask('Dishes', ladder: const [MicroStep('x')]);
       await tasks.archiveTask(task.id);

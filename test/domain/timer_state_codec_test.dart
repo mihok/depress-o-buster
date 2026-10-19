@@ -13,7 +13,7 @@ void main() {
     longRest: Duration(minutes: 45),
     cyclesBeforeLongRest: 3,
     snoozeBy: Duration(seconds: 90),
-    autoStartRest: false,
+    autoStartNext: false, restFirst: false,
   );
   const target = ApproachTarget(taskId: 't', taskTitle: 'Laundry', rungId: 'r2', rungPosition: 2, rungText: 'Sit up');
 
@@ -22,7 +22,7 @@ void main() {
       TimerState.idle(config),
       StartTimer(t0, runId: 'run-7', target: target, config: config),
     );
-    tr = engine.reduce(tr.state, SnoozeApproach(t0.add(const Duration(minutes: 1))));
+    tr = engine.reduce(tr.state, Snooze(t0.add(const Duration(minutes: 1))));
     final json = jsonDecode(jsonEncode(TimerStateCodec.toJson(tr.state))) as Map<String, dynamic>;
     final back = TimerStateCodec.fromJson(json);
     expect(back.status, TimerStatus.running);
@@ -61,7 +61,25 @@ void main() {
     });
     expect(back.status, TimerStatus.idle);
     expect(back.config.snoozeBy, const Duration(minutes: 2));
-    expect(back.config.autoStartRest, isTrue);
+    expect(back.config.autoStartNext, isTrue);
     expect(back.runId, '');
+  });
+
+  test('a timer saved before rest-first existed is read as approach first', () {
+    final c = TimerStateCodec.configFromJson({'approachMs': 60000, 'restMs': 120000, 'autoStartRest': false});
+    expect(c.restFirst, isFalse);
+    expect(c.autoStartNext, isFalse);
+    final fresh = TimerStateCodec.configFromJson({'approachMs': 60000, 'restMs': 120000});
+    expect(fresh.autoStartNext, isTrue);
+  });
+
+  test('the mood survives a round trip', () {
+    final s = engine.reduce(
+      TimerState.idle(const TimerConfig(approach: Duration(minutes: 1), rest: Duration(minutes: 2))),
+      StartTimer(t0, runId: 'run-m', moodBefore: 'tired'),
+    ).state;
+    final back = TimerStateCodec.fromJson(TimerStateCodec.toJson(s));
+    expect(back.moodBefore, 'tired');
+    expect(back.status, TimerStatus.running);
   });
 }

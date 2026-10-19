@@ -10,7 +10,7 @@ enum XpBonus {
   firstEver(50, 'First session ever'),
   welcomeBack(40, 'Back after a few days away'),
   firstToday(10, 'First one today'),
-  newPersonalRung(25, 'Highest rung yet on this task'),
+  newPersonalRung(25, 'Highest step yet on this task'),
   climbedLadder(15, 'Higher than last time on this task');
 
   const XpBonus(this.xp, this.label);

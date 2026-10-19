@@ -28,7 +28,6 @@ class TimerController extends Notifier<TimerState> {
   static const Duration settleWindow = Duration(milliseconds: 700);
 
   Timer? _ticker;
-  String? _moodBefore;
   bool _wakelockOn = false;
   DateTime? _lastTransitionAt;
 
@@ -53,18 +52,22 @@ class TimerController extends Notifier<TimerState> {
   SettingsService get _store => ref.read(settingsServiceProvider);
   AppSettings get _settings => ref.read(settingsProvider);
 
-  /// One tap. The system notification prompt is shown on the very first
-  /// start only; because effects are serialised, the first alarm is
-  /// scheduled after the answer, and a refusal just leaves a calm hint.
+  /// One tap starts a round: the rest first (time to get ready), then the
+  /// step, or the other way round when the setting says so. The system
+  /// notification prompt is shown on the very first start only; because
+  /// effects are serialised, the first alarm is scheduled after the answer,
+  /// and a refusal just leaves a calm hint.
   Future<void> start({
     TimerConfig? config,
     ApproachTarget? target,
     String? moodBefore,
-    Phase phase = Phase.approach,
+    Phase? phase,
     String? runId,
   }) async {
     if (state.isActive) return;
-    _moodBefore = moodBefore;
+    // A phase that just ended on its own redraws the controls under the
+    // finger; a tap meant for the old button must not start the next thing.
+    if (state.status == TimerStatus.finished && _settling) return;
     if (_alarms.isSupported && !_settings.notificationPermissionAsked) {
       _enqueue(() => _alarms.ensurePermissions());
       unawaited(
@@ -80,14 +83,24 @@ class TimerController extends Notifier<TimerState> {
         phase: phase,
         target: target,
         config: config ?? _settings.timerConfig,
+        moodBefore: moodBefore,
       ),
     );
   }
 
-  /// With "start rest automatically" off: begin the rest that belongs to the
-  /// approach that just finished (same run, same target, long rest honoured).
+  /// With automatic start off: begin the rest that belongs to the approach
+  /// that just finished (same run, same target, long rest honoured).
   Future<void> startRest() => start(
     phase: Phase.rest,
+    config: state.config,
+    target: state.target,
+    runId: state.runId.isEmpty ? null : state.runId,
+  );
+
+  /// With automatic start off, rest first: begin the step the rest just
+  /// prepared for (same run, same target).
+  Future<void> startApproach() => start(
+    phase: Phase.approach,
     config: state.config,
     target: state.target,
     runId: state.runId.isEmpty ? null : state.runId,
@@ -97,7 +110,7 @@ class TimerController extends Notifier<TimerState> {
 
   void resume() => _dispatch(ResumeTimer(clock.now()));
 
-  void snooze({Duration? by}) => _dispatch(SnoozeApproach(clock.now(), by: by));
+  void snooze({Duration? by}) => _dispatch(Snooze(clock.now(), by: by));
 
   bool get _settling =>
       _lastTransitionAt != null && clock.now().difference(_lastTransitionAt!) < settleWindow;
@@ -122,20 +135,21 @@ class TimerController extends Notifier<TimerState> {
     if (state.isRunning) _dispatch(Tick(clock.now()));
   }
 
-  /// Restore a timer that was running when the process died.
+  /// Restore a timer that was running, paused or waiting (a finished phase
+  /// whose next step is started by hand) when the process died.
   Future<void> restore() async {
     final json = await _store.loadActiveTimer();
     if (json == null) return;
     try {
       final restored = TimerStateCodec.fromJson(json);
-      if (!restored.isActive) {
+      if (restored.status == TimerStatus.idle) {
         await _store.saveActiveTimer(null);
         return;
       }
       state = restored;
       _syncTicker();
       _syncWakelock();
-      _dispatch(Tick(clock.now()));
+      if (restored.isRunning) _dispatch(Tick(clock.now()));
     } catch (e) {
       debugPrint('Timer restore failed: $e');
       await _store.saveActiveTimer(null);
@@ -184,7 +198,11 @@ class TimerController extends Notifier<TimerState> {
 
   Future<void> _persist() async {
     try {
-      await _store.saveActiveTimer(state.isActive ? TimerStateCodec.toJson(state) : null);
+      // Finished states are kept too: a rest that waits for "Start the step"
+      // must still be there after a restart.
+      await _store.saveActiveTimer(
+        state.status == TimerStatus.idle ? null : TimerStateCodec.toJson(state),
+      );
     } catch (e) {
       debugPrint('Timer persist failed: $e');
     }
@@ -202,6 +220,8 @@ class TimerController extends Notifier<TimerState> {
               target: effect.target,
               sound: settings.soundEnabled,
               vibrate: settings.vibrationEnabled,
+              next: effect.next,
+              preparing: effect.preparing,
             );
           case CancelAlarms():
             await _alarms.cancelScheduled();
@@ -211,9 +231,10 @@ class TimerController extends Notifier<TimerState> {
               phase: effect.phase,
               endsAt: effect.endsAt,
               target: effect.target,
-              restEndsAt: effect.restEndsAt,
-              restPhase: effect.restPhase,
+              nextEndsAt: effect.nextEndsAt,
+              nextPhase: effect.nextPhase,
               pausedAt: effect.pausedAt,
+              preparing: effect.preparing,
             );
           case HideOngoing():
             await _alarms.hideOngoing();
@@ -226,13 +247,9 @@ class TimerController extends Notifier<TimerState> {
               await _sound.play(effect.kind);
             }
           case PhaseEnded():
-            final logged = await _xp.logPhase(
-              effect,
-              moodBefore: effect.phase == Phase.approach ? _moodBefore : null,
-            );
+            final logged = await _xp.logPhase(effect, moodBefore: effect.moodBefore);
             ref.read(lastLoggedProvider.notifier).set(logged);
             if (effect.phase == Phase.approach) {
-              _moodBefore = null;
               ref.read(lastApproachLoggedProvider.notifier).set(logged);
             }
         }
