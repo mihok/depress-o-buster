@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:ui' show Color;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -57,6 +58,9 @@ class LocalNotificationsAlarmService implements AlarmService {
   @override
   Stream<String?> get tapped => _taps.stream;
 
+  /// The sage of the approach colour; Android tints the small icon with it.
+  static const Color _accent = Color(0xFF8FB39A);
+
   AndroidFlutterLocalNotificationsPlugin? get _android => !kIsWeb && Platform.isAndroid
       ? _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       : null;
@@ -64,7 +68,9 @@ class LocalNotificationsAlarmService implements AlarmService {
   @override
   Future<void> init() async {
     if (!isSupported || _initialized) return;
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // A monochrome glyph: Android draws small icons as a white silhouette and
+    // tints them, so the launcher icon would come out as a blob.
+    const android = AndroidInitializationSettings('ic_stat_stone');
     const darwin = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -213,6 +219,7 @@ class LocalNotificationsAlarmService implements AlarmService {
       sound: sound ? RawResourceAndroidNotificationSound(soundName) : null,
       enableVibration: vibrate,
       autoCancel: true,
+      color: _accent,
     );
     final darwin = DarwinNotificationDetails(
       presentAlert: true,
@@ -310,6 +317,7 @@ class LocalNotificationsAlarmService implements AlarmService {
             // counts into negative time if the app is frozen or killed.
             timeoutAfter: paused ? null : (msUntilEnd < 1000 ? 1000 : msUntilEnd),
             category: AndroidNotificationCategory.progress,
+            color: _accent,
           ),
         ),
       );

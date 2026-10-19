@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
+  <!-- Soft light low on the horizon: a half-disc resting on the water line -->
+  <path d="M 48 104 A 68 68 0 0 1 184 104 Z" fill="#E6E8EA" fill-opacity="0.14"/>
+  <line x1="24" y1="104" x2="216" y2="104" stroke="#8E9BC7" stroke-width="1.5" stroke-opacity="0.35" stroke-linecap="round"/>
+  <!-- The front of one still ring, the rest hidden behind the stone -->
+  <path d="M 56 104 A 60 11 0 0 0 176 104" fill="none" stroke="#8E9BC7" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"/>
+  <!-- The stone from the brand mark, scaled 0.2, underside on the water line -->
+  <path d="M 73.8 80.4 C 73.8 63.2, 94.6 52.4, 119 53.2 C 143.4 54, 158.6 65.6, 158.2 82 C 157.8 96.8, 142.2 104, 116.6 104 C 91.8 104, 73.8 96.8, 73.8 80.4 Z" fill="#8FB39A"/>
+  <ellipse cx="108" cy="69" rx="24" ry="9" fill="#E6E8EA" fill-opacity="0.14" transform="rotate(-8 108 69)"/>
+  <!-- Light lying on the water -->
+  <line x1="50" y1="123" x2="182" y2="123" stroke="#E6E8EA" stroke-width="3" stroke-opacity="0.10" stroke-linecap="round"/>
+  <line x1="72" y1="132" x2="160" y2="132" stroke="#E6E8EA" stroke-width="2.5" stroke-opacity="0.07" stroke-linecap="round"/>
+</svg>

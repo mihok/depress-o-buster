@@ -1,5 +1,7 @@
 # Depress-o-buster
 
+![Depress-o-buster: a stone in still water](docs/images/banner.svg)
+
 An inverted-Pomodoro timer for days when the hard part is starting. Instead of 25 minutes of work and 5 of rest,
 a session looks like "5 minutes sitting next to the laundry pile, then 30 minutes back in bed". The work interval
 is an **approach**: being near the thing, not doing the thing. Over days the ratio inverts on its own.
@@ -15,6 +17,18 @@ is an **approach**: being near the thing, not doing the thing. Over days the rat
 * Local-first: everything lives in an on-device SQLite database.
 
 This is a timer with a very low floor. It is not a medical device and makes no health claims.
+
+## Screenshots
+
+Rendered from the real widgets by a test (see `docs/VISUALS.md`), so they match the build exactly.
+
+| Start | Approach | Rest | Progress |
+|:-:|:-:|:-:|:-:|
+| ![Start](docs/screenshots/01-start.png) | ![Approach running](docs/screenshots/02-approach.png) | ![Rest running](docs/screenshots/03-rest.png) | ![Progress](docs/screenshots/08-progress.png) |
+
+| Tasks | Ladder | Break it down | Light theme |
+|:-:|:-:|:-:|:-:|
+| ![Tasks](docs/screenshots/05-tasks.png) | ![A task's ladder](docs/screenshots/06-ladder.png) | ![Break this down smaller](docs/screenshots/07-breakdown.png) | ![Start, light theme](docs/screenshots/11-start-light.png) |
 
 ## Install on an Android phone
 
@@ -117,6 +131,7 @@ PLAN.md         the plan this was built from
 
 Future seams (interfaces only, all off): an AI companion voice during approaches (`CompanionService`), music
 that follows the timer (`AudioContextService`), body doubling, and sync. See `docs/DECISIONS.md`.
+The imagery (illustrations, icon, splash, notification glyph) and how to regenerate it: `docs/VISUALS.md`.
 
 ## Tuning the XP curve
 

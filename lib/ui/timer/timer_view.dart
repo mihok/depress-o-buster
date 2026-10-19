@@ -7,6 +7,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../services/providers.dart';
+import '../widgets/illustration.dart';
 import '../widgets/logged_feedback.dart';
 import '../widgets/mood_chips.dart';
 
@@ -46,6 +47,12 @@ class TimerView extends ConsumerWidget {
                       ),
                     const SizedBox(height: 20),
                     if (!finished) ...[
+                      AppIllustration(
+                        state.isApproach ? Illustration.pathAhead : Illustration.restMoon,
+                        height: 112,
+                        opacity: state.isPaused ? 0.6 : 1,
+                      ),
+                      const SizedBox(height: 20),
                       Text(
                         formatClock(state.remaining(now)),
                         style: theme.textTheme.displayLarge?.copyWith(
@@ -109,6 +116,11 @@ class _FinishedPanelState extends ConsumerState<_FinishedPanel> {
     final lastApproach = ref.watch(lastApproachLoggedProvider);
     return Column(
       children: [
+        AppIllustration(
+          widget.state.phase.isRest ? Illustration.stoneDawn : Illustration.rippleDone,
+          height: 112,
+        ),
+        const SizedBox(height: 20),
         Text(
           widget.state.phase.isRest ? 'Rest complete.' : 'Approach complete.',
           style: theme.textTheme.headlineMedium,

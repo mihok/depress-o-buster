@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/ladder/starter_ladders.dart';
 import '../../services/providers.dart';
+import '../widgets/illustration.dart';
 import 'task_detail_screen.dart';
 
 class TasksScreen extends ConsumerWidget {
@@ -28,6 +29,12 @@ class TasksScreen extends ConsumerWidget {
                 style: theme.textTheme.bodySmall,
               ),
             ),
+            if (tasks.isEmpty)
+              const EmptyState(
+                illustration: Illustration.stonesEmpty,
+                title: 'No tasks yet.',
+                body: 'Add one thing. Its ladder will start at almost nothing.',
+              ),
             for (final task in tasks) _TaskTile(task: task),
           ],
         ),

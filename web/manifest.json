@@ -1,11 +1,11 @@
 {
-    "name": "depress_o_buster",
-    "short_name": "depress_o_buster",
+    "name": "Depress-o-buster",
+    "short_name": "Depress-o-buster",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F1114",
+    "theme_color": "#0F1114",
+    "description": "Approach a task for a tiny interval, then rest. Small steps, no guilt.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

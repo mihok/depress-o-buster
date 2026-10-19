@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tasks tab, empty: three small muted stones in a loose line stepping away across still water. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
+  <line x1="24" y1="48" x2="216" y2="48" stroke="#8E9BC7" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.25"/>
+  <g opacity="0.45">
+    <ellipse cx="176" cy="82" rx="20" ry="4" fill="none" stroke="#8E9BC7" stroke-width="1.5" stroke-opacity="0.4"/>
+    <path d="M 160.8 73.5 C 160.8 67.3, 168.3 63.4, 177.1 63.7 C 185.9 64.0, 191.3 68.2, 191.2 74.1 C 191.0 79.4, 185.4 82.0, 176.2 82.0 C 167.3 82.0, 160.8 79.4, 160.8 73.5 Z" fill="#9AA3AB"/>
+  </g>
+  <g opacity="0.7">
+    <ellipse cx="124" cy="97" rx="26" ry="5.4" fill="none" stroke="#8E9BC7" stroke-width="1.75" stroke-opacity="0.4"/>
+    <path d="M 104.0 85.8 C 104.0 77.6, 113.8 72.5, 125.4 72.9 C 137.0 73.3, 144.2 78.8, 144.0 86.5 C 143.9 93.6, 136.4 97.0, 124.3 97.0 C 112.5 97.0, 104.0 93.6, 104.0 85.8 Z" fill="#9AA3AB"/>
+  </g>
+  <ellipse cx="62" cy="104" rx="34" ry="7" fill="none" stroke="#8E9BC7" stroke-width="2" stroke-opacity="0.35"/>
+  <path d="M 35.6 89.3 C 35.6 78.5, 48.6 71.8, 63.9 72.3 C 79.1 72.8, 88.6 80.0, 88.4 90.3 C 88.1 99.5, 78.4 104.0, 62.4 104.0 C 46.9 104.0, 35.6 99.5, 35.6 89.3 Z" fill="#9AA3AB"/>
+</svg>
