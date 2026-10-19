@@ -200,6 +200,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       SnackBar(
         content: Text(changed == 1 ? 'One step time changed' : '$changed step times changed'),
         behavior: SnackBarBehavior.floating,
+        persist: false,
+        duration: const Duration(seconds: 6),
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () async {
@@ -225,6 +227,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       SnackBar(
         content: const Text('Step removed'),
         behavior: SnackBarBehavior.floating,
+        // A snack bar with an action would otherwise stay until dismissed.
+        persist: false,
+        duration: const Duration(seconds: 6),
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () async {
