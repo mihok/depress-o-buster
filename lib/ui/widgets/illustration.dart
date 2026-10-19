@@ -20,8 +20,8 @@ enum Illustration {
   /// Three painted pebbles stepping away across water. The running approach.
   pathAhead('path_ahead', 'Three pebbles stepping away across still water', raster: true),
 
-  /// A thin moon over water, no stone. The running rest.
-  restMoon('rest_moon', 'A thin moon over still water'),
+  /// A painted moon over water, no stone. The running rest.
+  restMoon('rest_moon', 'A moon over still water', raster: true),
 
   /// The stone with rings spreading from it. An approach just completed.
   rippleDone('ripple_done', 'A stone with rings spreading from it'),

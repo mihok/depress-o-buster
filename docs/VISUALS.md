@@ -53,7 +53,7 @@ than the full width.
 | `stone_still.svg`  | Start tab, above the one-tap button                | One stone, still water, one faint ring. Nothing is required of you. |
 | `stone_dawn.svg`   | Start tab after three or more quiet days; rest complete | The same stone with soft light low on the horizon. Good to see you. |
 | `path_ahead.png`   | Running approach                                   | Three painted pebbles stepping away (from `assets/images/pebbles.png`). Being near the thing. |
-| `rest_moon.svg`    | Running rest                                       | A thin moon over still water, no stone. Rest is the method too.    |
+| `rest_moon.png`    | Running rest                                       | A painted moon over still water (from `assets/images/moon.png`). Rest is the method too. |
 | `ripple_done.svg`  | Approach complete                                  | The stone with two rings spreading from it. That counted.          |
 | `stones_empty.svg` | Tasks tab with no tasks                            | Three small stones in a loose line going away. Pick one up.        |
 | `water_quiet.svg`  | Empty history and progress                         | Water only, one ring. Nothing logged yet, and that is fine.        |
