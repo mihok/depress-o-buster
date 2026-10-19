@@ -72,4 +72,14 @@ void main() {
     final fresh = TimerStateCodec.configFromJson({'approachMs': 60000, 'restMs': 120000});
     expect(fresh.autoStartNext, isTrue);
   });
+
+  test('the mood survives a round trip', () {
+    final s = engine.reduce(
+      TimerState.idle(const TimerConfig(approach: Duration(minutes: 1), rest: Duration(minutes: 2))),
+      StartTimer(t0, runId: 'run-m', moodBefore: 'tired'),
+    ).state;
+    final back = TimerStateCodec.fromJson(TimerStateCodec.toJson(s));
+    expect(back.moodBefore, 'tired');
+    expect(back.status, TimerStatus.running);
+  });
 }

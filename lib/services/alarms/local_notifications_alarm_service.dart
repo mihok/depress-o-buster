@@ -192,18 +192,17 @@ class LocalNotificationsAlarmService implements AlarmService {
     ApproachTarget? target,
     required bool sound,
     required bool vibrate,
+    Phase? next,
+    bool preparing = false,
   }) async {
     if (!isSupported) return;
     final isApproach = phase == Phase.approach;
     final id = isApproach ? approachAlarmId : restAlarmId;
     final channelId = channelIdFor(approach: isApproach, sound: sound, vibrate: vibrate);
     final soundName = isApproach ? 'approach_done' : 'rest_done';
-    final title = isApproach ? 'Approach done' : (phase == Phase.longRest ? 'Long rest done' : 'Rest done');
-    final body = isApproach
-        ? (target?.description == null || (target?.isEmpty ?? true)
-              ? 'That counts. Rest now.'
-              : '${target!.description}. That counts. Rest now.')
-        : 'Ready when you are.';
+    final copy = AlarmCopy.phaseEnd(phase: phase, target: target, next: next, preparing: preparing);
+    final title = copy.title;
+    final body = copy.body;
 
     final android = AndroidNotificationDetails(
       channelId,
@@ -265,6 +264,7 @@ class LocalNotificationsAlarmService implements AlarmService {
     DateTime? nextEndsAt,
     Phase? nextPhase,
     DateTime? pausedAt,
+    bool preparing = false,
   }) async {
     if (!kIsWeb && Platform.isIOS) {
       await _liveActivity.show(
@@ -285,7 +285,7 @@ class LocalNotificationsAlarmService implements AlarmService {
     final hasTarget = target != null && !target.isEmpty;
     final title = isApproach
         ? (hasTarget ? 'Approach: ${target.description}' : 'Approach')
-        : (nextPhase == Phase.approach && hasTarget
+        : ((preparing || nextPhase == Phase.approach) && hasTarget
             ? '${phase.label} before: ${target.description}'
             : phase.label);
     final paused = pausedAt != null;

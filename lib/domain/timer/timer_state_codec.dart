@@ -24,6 +24,7 @@ class TimerStateCodec {
     'pausedAt': s.pausedAt?.toUtc().toIso8601String(),
     'cycleIndex': s.cycleIndex,
     'snoozeCount': s.snoozeCount,
+    'moodBefore': s.moodBefore,
   };
 
   static TimerState fromJson(Map<String, dynamic> j) {
@@ -45,6 +46,7 @@ class TimerStateCodec {
       pausedAt: _date(j['pausedAt']),
       cycleIndex: (j['cycleIndex'] as num?)?.toInt() ?? 0,
       snoozeCount: (j['snoozeCount'] as num?)?.toInt() ?? 0,
+      moodBefore: j['moodBefore'] as String?,
     );
   }
 

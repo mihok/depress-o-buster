@@ -46,6 +46,8 @@ class _RecordingAlarmService extends NoopAlarmService {
     ApproachTarget? target,
     required bool sound,
     required bool vibrate,
+    Phase? next,
+    bool preparing = false,
   }) async => calls.add('schedule:${phase.name}');
 
   @override
@@ -60,6 +62,7 @@ class _RecordingAlarmService extends NoopAlarmService {
     DateTime? nextEndsAt,
     Phase? nextPhase,
     DateTime? pausedAt,
+    bool preparing = false,
   }) async => calls.add('ongoing:${phase.name}');
 
   @override
@@ -287,6 +290,31 @@ void main() {
     await h.tearDown(tester);
   });
 
+  testWidgets('a paused rest before the step still offers the step', (tester) async {
+    final h = await _harness();
+    await h.pump(tester);
+    await tester.tap(find.text('Sit up for 2 minutes'));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text('Pause'));
+    await tester.pump();
+    expect(find.text('Resume'), findsOneWidget);
+    expect(find.text('Start the step'), findsOneWidget, reason: 'ready now works while paused too');
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.text('Start the step'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Approach'), findsOneWidget);
+    expect(find.text('2:00'), findsOneWidget);
+    await tester.tap(find.text('Stop'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Stop'));
+    await tester.pump();
+    await tester.pump();
+    await h.tearDown(tester);
+  });
+
   testWidgets('a running timer survives a restart', (tester) async {
     final h = await _harness();
     await h.pump(tester);
@@ -336,7 +364,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Sit next to the pile for 5 minutes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Start a 5 min approach here'));
+    await tester.tap(find.text('Rest first, then a 5 min approach here'));
     // Let the sheet and the detail route finish leaving (about 300 ms),
     // one frame per 100 ms so the finished routes are actually removed, and
     // get past the controller's settle window before tapping Stop.

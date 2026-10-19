@@ -187,8 +187,31 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Future<void> _applyStepLength(Task task, double factor) async {
     _draggingSlider = false;
     if (factor == 1) return;
-    final changed = await ref.read(taskRepositoryProvider).scaleStepDurations(task.id, factor);
-    if (changed == 0 && mounted) setState(() => _previewFactor = 1);
+    final repo = ref.read(taskRepositoryProvider);
+    final before = await repo.ladder(task.id);
+    final changed = await repo.scaleStepDurations(task.id, factor);
+    if (!mounted) return;
+    if (changed == 0) {
+      setState(() => _previewFactor = 1);
+      return;
+    }
+    // Hand-set times are precious: the previous ones can be put back.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(changed == 1 ? 'One step time changed' : '$changed step times changed'),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            try {
+              await repo.restoreStepDurations(task.id, before);
+            } catch (e) {
+              debugPrint('restoreStepDurations failed: $e');
+            }
+          },
+        ),
+      ),
+    );
   }
 
   /// Remove a step with a quiet way back. Undo restores the very same step
@@ -205,7 +228,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () async {
-            await repo.restoreStep(task.id, step);
+            // The task may be gone by now; then there is nothing to put back.
+            try {
+              await repo.restoreStep(task.id, step);
+            } catch (e) {
+              debugPrint('restoreStep failed: $e');
+            }
             if (mounted) setState(() => _removedIds.remove(step.id));
           },
         ),
@@ -250,7 +278,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 ref.read(rootTabProvider.notifier).set(0);
                 Navigator.of(context).popUntil((r) => r.isFirst);
               },
-              child: Text('Start a ${formatWords(duration)} approach here'),
+              child: Text(
+                settings.restFirst
+                    ? 'Rest first, then a ${formatWords(duration)} approach here'
+                    : 'Start a ${formatWords(duration)} approach here',
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton(

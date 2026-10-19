@@ -41,12 +41,16 @@ abstract class AlarmService {
   /// Android: open the exact-alarm settings page.
   Future<void> openExactAlarmSettings();
 
+  /// [next] is the phase that begins on its own when the alarm fires;
+  /// [preparing] marks the rest before a step. Both only change the words.
   Future<void> schedulePhaseEnd({
     required Phase phase,
     required DateTime at,
     ApproachTarget? target,
     required bool sound,
     required bool vibrate,
+    Phase? next,
+    bool preparing = false,
   });
 
   /// Cancel the scheduled "phase over" alarms (not the ongoing notification).
@@ -64,6 +68,7 @@ abstract class AlarmService {
     DateTime? nextEndsAt,
     Phase? nextPhase,
     DateTime? pausedAt,
+    bool preparing = false,
   });
 
   Future<void> hideOngoing();
@@ -97,6 +102,8 @@ class NoopAlarmService implements AlarmService {
     ApproachTarget? target,
     required bool sound,
     required bool vibrate,
+    Phase? next,
+    bool preparing = false,
   }) async {}
 
   @override
@@ -111,6 +118,7 @@ class NoopAlarmService implements AlarmService {
     DateTime? nextEndsAt,
     Phase? nextPhase,
     DateTime? pausedAt,
+    bool preparing = false,
   }) async {}
 
   @override
@@ -118,4 +126,33 @@ class NoopAlarmService implements AlarmService {
 
   @override
   Stream<String?> get tapped => const Stream.empty();
+}
+
+/// The words on a "phase over" notification. Pure, so they can be tested.
+class AlarmCopy {
+  AlarmCopy._();
+
+  static ({String title, String body}) phaseEnd({
+    required Phase phase,
+    ApproachTarget? target,
+    Phase? next,
+    bool preparing = false,
+  }) {
+    final what = target == null || target.isEmpty ? null : target.description;
+    if (phase == Phase.approach) {
+      final counts = what == null ? 'That counts.' : '$what. That counts.';
+      return (title: 'Approach done', body: next == null ? counts : '$counts Rest now.');
+    }
+    final restTitle = phase == Phase.longRest ? 'Long rest done' : 'Rest done';
+    if (next == Phase.approach) {
+      return (title: 'Time for the step', body: what ?? 'The rest is over. The step starts now.');
+    }
+    if (preparing) {
+      return (
+        title: restTitle,
+        body: what == null ? 'Start the step when you are ready.' : 'Start the step when you are ready: $what',
+      );
+    }
+    return (title: restTitle, body: 'Ready when you are.');
+  }
 }

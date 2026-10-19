@@ -582,6 +582,57 @@ void main() {
       expect(single<ShowOngoing>(tr).nextPhase, Phase.approach);
     });
 
+    test('ready now with automatic start off still starts the step at once', () {
+      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartNext: false);
+      final rest = start(TimerState.idle(manual), t0, cfg: manual).state;
+      final tr = engine.reduce(rest, FinishEarly(t0.add(const Duration(minutes: 4))));
+      expect(tr.state.status, TimerStatus.running);
+      expect(tr.state.phase, Phase.approach, reason: '"Start the step" means now');
+      expect(tr.state.phaseEndsAt, t0.add(const Duration(minutes: 9)));
+      expect(single<ScheduleAlarm>(tr).phase, Phase.approach);
+    });
+
+    test('the mood given at the start rides the round to the step', () {
+      final tr0 = engine.reduce(
+        TimerState.idle(cfg),
+        StartTimer(t0, runId: 'run-m', target: target, config: cfg, moodBefore: 'heavy'),
+      );
+      expect(tr0.state.moodBefore, 'heavy');
+      final restDone = engine.reduce(tr0.state, Tick(t0.add(const Duration(minutes: 30))));
+      expect(single<PhaseEnded>(restDone).moodBefore, isNull, reason: 'the mood belongs to the approach');
+      expect(restDone.state.moodBefore, 'heavy');
+      final stepDone = engine.reduce(restDone.state, Tick(t0.add(const Duration(minutes: 35))));
+      expect(single<PhaseEnded>(stepDone).moodBefore, 'heavy');
+      // A phase started by hand inside the round keeps it; a new round replaces it.
+      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartNext: false);
+      var m = engine.reduce(TimerState.idle(manual), StartTimer(t0, runId: 'r', config: manual, moodBefore: 'flat'));
+      m = engine.reduce(m.state, Tick(t0.add(const Duration(minutes: 30))));
+      m = engine.reduce(m.state, StartTimer(t0.add(const Duration(minutes: 31)), runId: 'r', phase: Phase.approach, config: manual));
+      expect(m.state.moodBefore, 'flat');
+      final fresh = start(TimerState.idle(cfg), t0, cfg: cfg).state;
+      expect(fresh.moodBefore, isNull);
+    });
+
+    test('alarms are told what happens when they fire', () {
+      final tr = start(TimerState.idle(cfg), t0, cfg: cfg);
+      final a = alarms(tr);
+      expect(a[0].phase, Phase.rest);
+      expect(a[0].next, Phase.approach, reason: 'the rest alarm announces the step');
+      expect(a[0].preparing, isTrue);
+      expect(a[1].phase, Phase.approach);
+      expect(a[1].next, isNull, reason: 'the step closes the round');
+      expect(single<ShowOngoing>(tr).preparing, isTrue);
+      const manual = TimerConfig(approach: Duration(minutes: 5), rest: Duration(minutes: 30), autoStartNext: false);
+      final waits = start(TimerState.idle(manual), t0, cfg: manual);
+      expect(single<ScheduleAlarm>(waits).next, isNull);
+      expect(single<ScheduleAlarm>(waits).preparing, isTrue, reason: 'the words still name the step');
+      const classic = TimerConfig(restFirst: false, approach: Duration(minutes: 5), rest: Duration(minutes: 30));
+      final c = alarms(start(TimerState.idle(classic), t0, cfg: classic));
+      expect(c[0].next, Phase.rest);
+      expect(c[0].preparing, isFalse);
+      expect(c[1].next, isNull);
+    });
+
     test('abandoning the rest returns to idle and keeps the target', () {
       final rest = start(TimerState.idle(cfg), t0, cfg: cfg).state;
       final tr = engine.reduce(rest, AbandonTimer(t0.add(const Duration(minutes: 3))));

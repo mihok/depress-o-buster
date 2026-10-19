@@ -47,12 +47,17 @@ class TimerEngine {
     // A new round or an explicit approach takes the target as given; a rest
     // started by hand after an approach keeps that approach's target.
     final target = e.phase == null || e.phase == Phase.approach ? e.target : (e.target ?? s.target);
+    // The mood belongs to the round: set with a new round, kept by a phase
+    // started by hand inside it.
+    final mood = e.phase == null ? e.moodBefore : s.moodBefore;
     final next = s.copyWith(
       status: TimerStatus.running,
       phase: phase,
       config: config,
       target: target,
       clearTarget: target == null,
+      moodBefore: mood,
+      clearMoodBefore: mood == null,
       runId: e.runId,
       phaseStartedAt: e.now,
       phaseEndsAt: endsAt,
@@ -65,12 +70,23 @@ class TimerEngine {
     );
     return TimerTransition(next, [
       const CancelAlarms(),
-      ScheduleAlarm(phase: phase, at: endsAt, target: target),
+      _alarmFor(next),
       ..._followingAlarm(next),
       _ongoingFor(next),
       const PlaySound(SoundKind.start, alarmAlreadyFired: false),
     ]);
   }
+
+  /// The alarm for the current phase, told what happens when it fires so the
+  /// notification can say so ("time for the step" rather than "ready when
+  /// you are").
+  ScheduleAlarm _alarmFor(TimerState s) => ScheduleAlarm(
+    phase: s.phase,
+    at: s.phaseEndsAt!,
+    target: s.target,
+    next: followingPhase(s),
+    preparing: s.isPreparing,
+  );
 
   /// The live countdown for the current phase. While paused the countdown
   /// is frozen and no following phase is announced.
@@ -91,6 +107,7 @@ class TimerEngine {
       nextEndsAt: nextEndsAt,
       nextPhase: nextPhase,
       pausedAt: pausedAt,
+      preparing: s.isPreparing,
     );
   }
 
@@ -153,7 +170,7 @@ class TimerEngine {
       clearPaused: true,
     );
     return TimerTransition(next, [
-      ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
+      _alarmFor(next),
       ..._followingAlarm(next),
       _ongoingFor(next),
     ]);
@@ -184,7 +201,7 @@ class TimerEngine {
     );
     return TimerTransition(next, [
       const CancelAlarms(),
-      ScheduleAlarm(phase: s.phase, at: endsAt, target: s.target),
+      _alarmFor(next),
       ..._followingAlarm(next),
       _ongoingFor(next),
     ]);
@@ -250,6 +267,7 @@ class TimerEngine {
       endedAt: endedAt,
       auto: auto,
       cycleIndex: cycleIndex,
+      moodBefore: isApproach ? s.moodBefore : null,
     );
     final sound = PlaySound(
       isApproach ? SoundKind.approachDone : SoundKind.restDone,
@@ -263,7 +281,9 @@ class TimerEngine {
       );
     }
 
-    final following = followingPhase(s);
+    // Ending the rest before a step by hand means "I am ready now": the step
+    // starts at once, whatever the automatic-start setting says.
+    final following = !auto && s.isPreparing ? Phase.approach : followingPhase(s);
     if (following != null) {
       final planned = s.config.durationFor(following);
       final nextEndsAt = endedAt.add(planned);
@@ -283,7 +303,7 @@ class TimerEngine {
         const CancelAlarms(),
         ended,
         sound,
-        ScheduleAlarm(phase: following, at: nextEndsAt, target: s.target),
+        _alarmFor(next),
         ..._followingAlarm(next),
         _ongoingFor(next),
       ]);
@@ -424,6 +444,7 @@ class TimerState {
     this.pausedAt,
     this.cycleIndex = 0,
     this.snoozeCount = 0,
+    this.moodBefore,
   });
 
   factory TimerState.idle(TimerConfig config, {ApproachTarget? target}) =>
@@ -458,6 +479,10 @@ class TimerState {
   /// Approaches completed in this run (drives the long rest).
   final int cycleIndex;
   final int snoozeCount;
+
+  /// The optional one-word mood given when the round started. It rides in
+  /// the state (and so survives process death) until the approach is logged.
+  final String? moodBefore;
 
   bool get isRunning => status == TimerStatus.running;
   bool get isPaused => status == TimerStatus.paused;
@@ -508,6 +533,8 @@ class TimerState {
     bool clearPaused = false,
     int? cycleIndex,
     int? snoozeCount,
+    String? moodBefore,
+    bool clearMoodBefore = false,
   }) {
     return TimerState(
       status: status ?? this.status,
@@ -524,6 +551,7 @@ class TimerState {
       pausedAt: clearPaused ? null : (pausedAt ?? this.pausedAt),
       cycleIndex: cycleIndex ?? this.cycleIndex,
       snoozeCount: snoozeCount ?? this.snoozeCount,
+      moodBefore: clearMoodBefore ? null : (moodBefore ?? this.moodBefore),
     );
   }
 
@@ -559,11 +587,15 @@ final class StartTimer extends TimerEvent {
     this.phase,
     this.target,
     this.config,
+    this.moodBefore,
   });
   final String runId;
   final Phase? phase;
   final ApproachTarget? target;
   final TimerConfig? config;
+
+  /// One optional word about how the person feels, for the round's approach.
+  final String? moodBefore;
 }
 
 final class Tick extends TimerEvent {
@@ -612,11 +644,23 @@ sealed class TimerEffect {
   const TimerEffect();
 }
 
+/// Schedule the "phase over" alarm. [next] is the phase that begins on its
+/// own when it fires (null when the run waits or ends there) and
+/// [preparing] says the rest is the one before a step, so the notification
+/// can say what actually happens.
 final class ScheduleAlarm extends TimerEffect {
-  const ScheduleAlarm({required this.phase, required this.at, this.target});
+  const ScheduleAlarm({
+    required this.phase,
+    required this.at,
+    this.target,
+    this.next,
+    this.preparing = false,
+  });
   final Phase phase;
   final DateTime at;
   final ApproachTarget? target;
+  final Phase? next;
+  final bool preparing;
 }
 
 final class CancelAlarms extends TimerEffect {
@@ -636,12 +680,17 @@ final class ShowOngoing extends TimerEffect {
     this.nextEndsAt,
     this.nextPhase,
     this.pausedAt,
+    this.preparing = false,
   });
   final String runId;
   final Phase phase;
   final DateTime endsAt;
   final ApproachTarget? target;
   final DateTime? nextEndsAt;
+
+  /// The rest before a step (so the countdown can name the step even when
+  /// it is started by hand).
+  final bool preparing;
 
   /// The phase that follows on its own, when [nextEndsAt] is set.
   final Phase? nextPhase;
@@ -678,11 +727,15 @@ final class PhaseEnded extends TimerEffect {
     required this.auto,
     required this.cycleIndex,
     this.target,
+    this.moodBefore,
   });
 
   final String runId;
   final Phase phase;
   final ApproachTarget? target;
+
+  /// The mood given at the start of the round; only on an approach.
+  final String? moodBefore;
   final Duration planned;
   final Duration actual;
   final Duration extended;

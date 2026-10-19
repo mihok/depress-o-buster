@@ -148,7 +148,9 @@ class _FinishedPanelState extends ConsumerState<_FinishedPanel> {
           preparing ? 'The step is next, whenever you are ready.' : 'Ready when you are.',
           style: theme.textTheme.bodySmall,
         ),
-        if (askMood && lastApproach != null) ...[
+        // The after-mood belongs to this round's step, so it is asked once
+        // the step is done, never before it.
+        if (askMood && !preparing && lastApproach != null && lastApproach.session.runId == widget.state.runId) ...[
           const SizedBox(height: 20),
           MoodChips(
             label: 'And now I feel (optional)',
@@ -356,14 +358,14 @@ class _Controls extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                if (state.isApproach)
+                if (state.isApproach || state.isPreparing)
                   Expanded(
                     child: TextButton(
                       onPressed: controller.finishEarly,
-                      child: const Text('Done early'),
+                      child: Text(state.isApproach ? 'Done early' : 'Start the step'),
                     ),
                   ),
-                if (state.isApproach) const SizedBox(width: 12),
+                if (state.isApproach || state.isPreparing) const SizedBox(width: 12),
                 Expanded(child: TextButton(onPressed: confirmStop, child: const Text('Stop'))),
               ],
             ),

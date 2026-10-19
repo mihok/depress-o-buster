@@ -149,9 +149,30 @@ class TaskRepository {
   /// to steps by id, so an undo must not mint a new one. A step that is
   /// already on the ladder is left alone.
   Future<void> restoreStep(String taskId, LadderStep step) async {
+    if (await getTask(taskId) == null) return;
     final current = await ladder(taskId);
     if (current.any((s) => s.id == step.id)) return;
     await replaceLadder(taskId, LadderLogic.insertAt(current, step.position, step));
+  }
+
+  /// Put back the suggested times of [steps] (matched by id) in one
+  /// transaction; steps that no longer exist are skipped. The way back after
+  /// the step-length slider.
+  Future<void> restoreStepDurations(String taskId, List<LadderStep> steps) async {
+    final now = clock.now();
+    await _db.transaction(() async {
+      final current = {for (final s in await ladder(taskId)) s.id: s};
+      for (final old in steps) {
+        final live = current[old.id];
+        if (live == null || live.suggestedDuration == old.suggestedDuration) continue;
+        final restored = live.copyWith(
+          suggestedDuration: old.suggestedDuration,
+          clearSuggestedDuration: old.suggestedDuration == null,
+        );
+        await (_db.update(_db.ladderSteps)..where((s) => s.id.equals(old.id)))
+            .write(stepToCompanion(restored, now));
+      }
+    });
   }
 
   /// Multiply every step's suggested time by [factor] in one transaction,
