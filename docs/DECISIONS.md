@@ -236,6 +236,13 @@ times 1, 1, 2, 3, 5, 8 and then 13 (a Fibonacci climb, capped so a long ladder d
 late in the ladder still gets the long rest its place earns, and moving a step moves its rest with it; the task
 screen shows the rest on every step, the step sheet says it before starting, and the edit dialog names it. The
 unit is the task's own (`Task.restUnit`, schema 3) or, when the task has none, the rest from Settings, so every
-existing task keeps working and the one-tap "Sit up for 2 minutes" preset keeps its own ratio. Both the rest unit
-and the step lengths are changed with a stretch slider that keeps going while it is held at either end, so the
-range never has to be re-dragged in steps; each release can be undone.
+existing task keeps working. The unit is kept between 30 seconds and 30 minutes wherever it comes from, so the
+longest rest any step gets is six and a half hours: a long afternoon, never a lost day. A round started from a
+step, from the task screen or the Start tab's picker, carries only that step's rest and no long rest from
+Settings, so later rounds rest what the screen said. The one-tap "Sit up for 2 minutes" is the floor task's
+fourth step and uses its ladder rest (a 3 minute unit, so 9 minutes), falling back to the preset's rest only when
+that task or step is gone. Both the rest unit and the step lengths are changed with a stretch slider that keeps
+going while it is held at either end (up to ×10 per release), so the range never has to be re-dragged in steps.
+A burst of releases shares one Undo bar that goes back to before the first of them; that bar never pushes a
+"Step removed" bar off the screen, because a removed step matters more than a stretched one. A task with its own
+unit can go back to following Settings from the same fold.

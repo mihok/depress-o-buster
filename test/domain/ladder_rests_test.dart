@@ -34,8 +34,45 @@ void main() {
     expect(LadderRests.scaleUnit(unit, 1.37), const Duration(minutes: 14));
   });
 
-  test('describes the climb in minutes', () {
-    expect(LadderRests.describe(unit), '10, 10, 20, 30, 50 min, …');
-    expect(LadderRests.describe(const Duration(seconds: 90), count: 3), '1.5, 1.5, 3 min, …');
+  test('describes the whole climb in the words used everywhere else', () {
+    expect(LadderRests.describe(unit), '10, 10, 20, 30, 50 min, 1 hr 20 min, then 2 hr 10 min from step 7 on');
+    expect(
+      LadderRests.describe(const Duration(seconds: 90)),
+      '1 min 30 sec, 1 min 30 sec, 3 min, 4 min 30 sec, 7 min 30 sec, 12 min, then 19 min 30 sec from step 7 on',
+    );
+    expect(LadderRests.restsFor(unit, 3), [const Duration(minutes: 10), const Duration(minutes: 10), const Duration(minutes: 20)]);
+  });
+
+  test('the unit stays between 30 seconds and 30 minutes, wherever it comes from', () {
+    expect(LadderRests.clampUnit(const Duration(seconds: 5)), LadderRests.minUnit);
+    expect(LadderRests.clampUnit(const Duration(hours: 4)), LadderRests.maxUnit);
+    expect(LadderRests.clampUnit(unit), unit);
+    final t = Task(id: 't', title: 'Laundry', createdAt: DateTime(2026));
+    expect(LadderRests.unitFor(t, const Duration(hours: 24)), LadderRests.maxUnit, reason: 'a huge Settings rest');
+    expect(LadderRests.unitFor(t.copyWith(restUnit: const Duration(seconds: 1)), unit), LadderRests.minUnit);
+    // The longest rest any step can get is a long afternoon, not days.
+    expect(LadderRests.maxRest, const Duration(hours: 6, minutes: 30));
+    expect(LadderRests.restFor(unit: LadderRests.maxUnit, position: 40), LadderRests.maxRest);
+  });
+
+  test('a round for a step uses its place in the ladder and no long rest', () {
+    const base = TimerConfig(
+      approach: Duration(minutes: 2),
+      rest: Duration(minutes: 5),
+      longRest: Duration(minutes: 20),
+      cyclesBeforeLongRest: 4,
+    );
+    final t = Task(id: 't', title: 'Laundry', createdAt: DateTime(2026));
+    final timed = LadderStep(id: 's', taskId: 't', position: 4, text: 'Sit by the pile', suggestedDuration: const Duration(minutes: 5));
+    final round = LadderRests.roundFor(base: base, task: t, step: timed, fallbackUnit: unit);
+    expect(round.approach, const Duration(minutes: 5));
+    expect(round.rest, const Duration(minutes: 50));
+    expect(round.longRest, isNull);
+    expect(round.cyclesBeforeLongRest, 0);
+    // An untimed step takes the usual approach; a task's own unit wins.
+    final untimed = LadderStep(id: 'u', taskId: 't', position: 0, text: 'Think about it');
+    final own = LadderRests.roundFor(base: base, task: t.copyWith(restUnit: const Duration(minutes: 3)), step: untimed, fallbackUnit: unit);
+    expect(own.approach, const Duration(minutes: 2));
+    expect(own.rest, const Duration(minutes: 3));
   });
 }

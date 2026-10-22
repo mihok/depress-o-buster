@@ -52,6 +52,8 @@ class _Harness {
       (await tester.runAsync(() => repo.ladder(task.id)))!;
 
   Future<void> tearDown(WidgetTester tester) async {
+    // Let any Undo bar time out, so no timer is left pending.
+    await tester.pump(const Duration(seconds: 7));
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     // The in-memory database is not closed on purpose: closing it waits on
@@ -128,9 +130,15 @@ void main() {
     expect(find.text('Rest 30 min · Step 5 min'), findsOneWidget);
     // The sliders fold out of the way until asked for.
     expect(find.byType(Slider), findsNothing);
-    expect(find.textContaining('Rest unit 10 min · rests 10, 10, 20, 30, 50 min'), findsOneWidget);
+    expect(find.text('Rest unit 10 min, from Settings'), findsOneWidget);
+    expect(find.textContaining('then 2 hr 10 min from step 7 on'), findsNothing, reason: 'the climb is in the fold');
     await tester.tap(find.text('Adjust step length and rest unit'));
     await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Each step has its own rest before it, from its place in the ladder: '
+          '10, 10, 20, 30, 50 min, 1 hr 20 min, then 2 hr 10 min from step 7 on.'),
+      findsOneWidget,
+    );
     expect(find.text('Step length'), findsOneWidget);
     expect(find.text('×1'), findsOneWidget);
     expect(find.text('Shorter'), findsNWidgets(2), reason: 'step length and rest unit sliders');
@@ -192,7 +200,159 @@ void main() {
     // The tiles and the summary follow the saved unit.
     final first = LadderRests.restFor(unit: task.restUnit!, position: 0);
     expect(find.text('Rest ${formatWords(first)} · Step 1 min'), findsOneWidget);
-    expect(find.textContaining('Rest unit ${formatWords(task.restUnit!)} · rests'), findsOneWidget);
+    expect(find.text('Rest unit ${formatWords(task.restUnit!)}, this task\'s own'), findsOneWidget);
+    expect(find.text('Use the rest from Settings again'), findsOneWidget);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('releases within six seconds share one Undo that goes back to before the first', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester);
+    final original = (await h.ladder(tester)).map((s) => s.suggestedDuration).toList();
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final slider = tester.getRect(find.byType(Slider).first);
+
+    Future<void> release() async {
+      final gesture = await tester.startGesture(slider.center);
+      await tester.pump();
+      await gesture.moveBy(const Offset(120, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await release();
+    expect(find.textContaining('step times changed'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await release();
+    await tester.pump(const Duration(seconds: 2));
+    await release();
+    expect(find.text('Undo'), findsOneWidget, reason: 'one bar for the whole burst');
+    final scaled = await h.ladder(tester);
+    expect(scaled[1].suggestedDuration!, greaterThan(const Duration(minutes: 6)), reason: 'three stretches of 2 min');
+    // Six seconds run from the last release, not the first.
+    await tester.pump(const Duration(seconds: 5));
+    expect(find.text('Undo'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), original, reason: 'back to the hand-set times');
+    expect(find.text('Undo'), findsNothing);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('a slider release never pushes "Step removed" off the screen', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester);
+    final before = await h.ladder(tester);
+
+    await tester.drag(find.text('Stand in the bathroom'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Step removed'), findsOneWidget);
+
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final slider = tester.getRect(find.byType(Slider).last);
+    final gesture = await tester.startGesture(slider.center);
+    await tester.pump();
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step removed'), findsOneWidget, reason: 'the removed step keeps its way back');
+    expect(find.textContaining('Rest unit is now'), findsNothing, reason: 'the slider bar waits its turn');
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, isNotNull, reason: 'saved all the same');
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Stand in the bathroom'), findsOneWidget);
+    expect((await h.ladder(tester)).map((s) => s.id), before.map((s) => s.id));
+
+    // Then the slider's own bar has its turn, with its own Undo.
+    expect(find.textContaining('Rest unit is now'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, isNull);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('a task with its own rest unit can follow Settings again', (tester) async {
+    final h = await _harness();
+    await h.pump(tester);
+    expect(find.text('Use the rest from Settings again'), findsNothing);
+
+    await tester.runAsync(() => h.repo.setRestUnit(h.task.id, const Duration(minutes: 5)));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Rest unit 5 min, this task\'s own'), findsOneWidget);
+    expect(find.text('Rest 5 min · Step 1 min'), findsOneWidget);
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use the rest from Settings again'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rest unit 10 min, from Settings'), findsOneWidget);
+    expect(find.text('Rest 10 min · Step 1 min'), findsOneWidget);
+    expect(find.text('Rest unit follows Settings again'), findsOneWidget);
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, isNull);
+    expect(find.text('Use the rest from Settings again'), findsNothing);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, const Duration(minutes: 5));
+    expect(find.text('Rest unit 5 min, this task\'s own'), findsOneWidget);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('the edit dialog says where the rest comes from, and when the climb has stopped', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await tester.runAsync(() async {
+      await h.repo.addStep(h.task.id, 'Dry off');
+      await h.repo.addStep(h.task.id, 'Get dressed');
+    });
+    await h.pump(tester);
+
+    await tester.tap(find.text('Think about a shower'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Rest before this step: 10 min, from its place in the ladder (step 1). Move the step to change it.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rest 2 hr 10 min · Step 2 min (the usual length)'), findsOneWidget, reason: 'step 7, ×13');
+    await tester.tap(find.text('Get dressed'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Rest before this step: 2 hr 10 min, the longest rest, shared by step 7 and every step after it. '
+          'Move it to step 6 or earlier for a shorter one.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
 
     await h.tearDown(tester);
   });

@@ -131,7 +131,8 @@ class _StartViewState extends ConsumerState<StartView> {
           Text(
             settings.restFirst
                 ? 'An approach is being near the thing, not doing the thing. The rest comes first: '
-                      'time to get ready, then the chime says it is time for the step.'
+                      'time to get ready, then the chime says it is time for the step, or start it sooner '
+                      'whenever you are ready.'
                 : 'An approach is being near the thing, not doing the thing. Rest is part of the method.',
             style: theme.textTheme.bodySmall,
           ),
@@ -145,12 +146,11 @@ class _StartViewState extends ConsumerState<StartView> {
     if (choice == null || !mounted) return;
     final settings = ref.read(settingsProvider);
     await _start(
-      config: settings.timerConfig.copyWith(
-        approach: choice.step.suggestedDuration ?? settings.approach,
-        rest: LadderRests.restFor(
-          unit: LadderRests.unitFor(choice.task, settings.rest),
-          position: choice.step.position,
-        ),
+      config: LadderRests.roundFor(
+        base: settings.timerConfig,
+        task: choice.task,
+        step: choice.step,
+        fallbackUnit: settings.rest,
       ),
       target: ApproachTarget(
         taskId: choice.task.id,

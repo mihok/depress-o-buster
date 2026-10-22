@@ -85,7 +85,13 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Any step is a fine place to start.', style: theme.textTheme.bodySmall),
+              child: Text(
+                settings.restFirst
+                    ? 'Any step is a fine place to start. The rest before it is time to get ready; '
+                          'the step can start sooner.'
+                    : 'Any step is a fine place to start.',
+                style: theme.textTheme.bodySmall,
+              ),
             ),
             const SizedBox(height: 8),
             if (ladder.isEmpty)
@@ -103,7 +109,7 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
                 title: Text(step.text),
                 subtitle: Text(
                   'Rest ${formatWords(LadderRests.restFor(unit: unit, position: step.position))}'
-                  ' · ${formatWords(step.suggestedDuration ?? settings.approach)}',
+                  ' · ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
                 ),
                 onTap: () => Navigator.pop(context, RungChoice(task, step)),
               ),

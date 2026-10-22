@@ -33,6 +33,8 @@ class SettingsScreen extends ConsumerWidget {
           DurationPickerTile(
             title: 'Rest',
             value: settings.rest,
+            hint: 'For a plain round, the rest each time. For the steps of a task, the rest unit: '
+                'each step rests 1, 1, 2, 3, 5, 8 or 13 times this, unless the task has a unit of its own.',
             onChanged: (d) => notifier.update((s) => s.copyWith(rest: d, clearLastPresetId: true)),
           ),
           SwitchListTile(

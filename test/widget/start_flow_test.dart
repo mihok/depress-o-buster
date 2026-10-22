@@ -396,8 +396,9 @@ void main() {
     await tester.tap(find.text('Sit next to the pile for 5 minutes'));
     await tester.pumpAndSettle();
     // Step 5 of the laundry ladder: five rest units (50 min) before 5 minutes.
-    expect(find.text('Rest 50 min, then 5 min here'), findsOneWidget);
-    await tester.tap(find.text('Rest 50 min, then 5 min here'));
+    expect(find.text('Rest 50 min, then a 5 min approach here'), findsOneWidget);
+    expect(find.textContaining('The step can start sooner'), findsOneWidget, reason: 'a long rest is no wall');
+    await tester.tap(find.text('Rest 50 min, then a 5 min approach here'));
     // Let the sheet and the detail route finish leaving (about 300 ms),
     // one frame per 100 ms so the finished routes are actually removed, and
     // get past the controller's settle window before tapping Stop.
