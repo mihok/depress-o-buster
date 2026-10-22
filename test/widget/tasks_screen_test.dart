@@ -40,7 +40,7 @@ void main() {
     await tester.tap(find.text('New task'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Rest before each step (the Settings rest, kept to 30 min): '
+      find.text('Rest before each step, from Settings (45 min) kept to 30 min: '
           '30, 30 min, 1 hr, 1 hr 30 min, 2 hr 30 min, 4 hr, 6 hr 30 min, 6 hr 30 min'),
       findsOneWidget,
     );

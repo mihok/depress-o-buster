@@ -240,8 +240,10 @@ existing task keeps working. The unit is kept between 30 seconds and 30 minutes 
 longest rest any step gets is six and a half hours: a long afternoon, never a lost day. A round started from a
 step, from the task screen or the Start tab's picker, carries only that step's rest and no long rest from
 Settings, so later rounds rest what the screen said. The one-tap "Sit up for 2 minutes" is the floor task's
-fourth step and uses its ladder rest (a 3 minute unit, so 9 minutes), falling back to the preset's rest only when
-that task or step is gone. Both the rest unit and the step lengths are changed with a stretch slider that keeps
+fourth step and starts that step's round, its ladder rest (a 3 minute unit, so 9 minutes) and no long rest, but
+always asks for exactly two minutes: the button says so, and the floor is a promise whatever the step's length
+has been stretched to on the task screen. It falls back to the preset's rest only when that task or step is
+gone. Both the rest unit and the step lengths are changed with a stretch slider that keeps
 going while it is held at either end (up to ×10 per release), so the range never has to be re-dragged in steps.
 A burst of releases shares one Undo bar that goes back to before the first of them; that bar never pushes a
 "Step removed" bar off the screen, because a removed step matters more than a stretched one. A task with its own

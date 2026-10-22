@@ -14,13 +14,13 @@ import '../widgets/illustration.dart';
 /// steps of a task climb from, kept within the range a unit can have.
 String _restHint(Duration rest) {
   final unit = LadderRests.clampUnit(rest);
-  final range = 'a unit stays within ${formatWords(LadderRests.minUnit)} to ${formatWords(LadderRests.maxUnit)}';
+  final range = 'A unit stays within ${formatWords(LadderRests.minUnit)} to ${formatWords(LadderRests.maxUnit)}.';
   return unit == rest
-      ? 'For a plain round, the rest each time. For the steps of a task, the rest unit ($range): '
-            'each step rests 1, 1, 2, 3, 5, 8 or 13 times this, unless the task has a unit of its own.'
+      ? 'For a plain round, the rest each time. For the steps of a task, the rest unit: each step '
+            'rests 1, 1, 2, 3, 5, 8 or 13 times this rest, unless the task has a unit of its own. $range'
       : 'For a plain round, the rest each time. For the steps of a task, the rest unit is '
-            '${formatWords(unit)} ($range): each step rests 1, 1, 2, 3, 5, 8 or 13 times that, unless the '
-            'task has a unit of its own.';
+            '${formatWords(unit)}, the ${unit == LadderRests.maxUnit ? 'most' : 'least'} a unit can be: each '
+            'step rests 1, 1, 2, 3, 5, 8 or 13 times that, unless the task has a unit of its own. $range';
 }
 
 class SettingsScreen extends ConsumerWidget {

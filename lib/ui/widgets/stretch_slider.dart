@@ -108,6 +108,11 @@ class _StretchSliderState extends State<StretchSlider> {
   bool _onThumb = true;
   bool _ignoring = false;
 
+  /// An onChangeStart that arrived inside an interaction (a keyboard or
+  /// screen-reader step while a finger holds the thumb, or during an ignored
+  /// touch): its own onChangeEnd is swallowed, so the pair stays balanced.
+  bool _nested = false;
+
   /// The grab circle around the thumb, and the track's inset from either
   /// end of the slider (the overlay radius, wider than the thumb).
   static const double _grab = 28;
@@ -146,7 +151,10 @@ class _StretchSliderState extends State<StretchSlider> {
 
   void _handleStart(double logFactor) {
     // A keyboard step while a finger holds the thumb joins the drag.
-    if (_held || _ignoring) return;
+    if (_held || _ignoring) {
+      _nested = true;
+      return;
+    }
     if (_pointerDown && !_onThumb) {
       _ignoring = true;
       return;
@@ -248,9 +256,14 @@ class _StretchSliderState extends State<StretchSlider> {
   }
 
   void _handleEnd(double logFactor) {
-    // The end of a keyboard step while the finger is still down: the drag
-    // goes on, and the finger's own release reports once.
-    if (_pointerDown) return;
+    // The end of a step that arrived inside an interaction: the interaction
+    // goes on and reports once, at its own end. Every other end finishes
+    // the interaction, a cancelled one included (the scroll view winning
+    // the gesture arena ends the slider's drag through onChangeEnd too).
+    if (_nested) {
+      _nested = false;
+      return;
+    }
     if (_ignoring) {
       _ignoring = false;
       return;

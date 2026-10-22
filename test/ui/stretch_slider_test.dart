@@ -10,22 +10,26 @@ class _Host {
   double factor = 1;
   final List<double> ends = [];
 
-  Widget build() {
+  /// Alone in the middle of the screen, or ([inList]) inside a vertical
+  /// scroll view, as on the task screen, where the two share the gesture
+  /// arena.
+  Widget build({bool inList = false}) {
+    final slider = StatefulBuilder(
+      builder: (context, setState) => StretchSlider(
+        factor: factor,
+        onChanged: (f) => setState(() => factor = f),
+        onChangeEnd: (f) => setState(() {
+          ends.add(f);
+          factor = 1;
+        }),
+        semanticsLabel: 'Step length',
+      ),
+    );
     return MaterialApp(
       home: Scaffold(
-        body: Center(
-          child: StatefulBuilder(
-            builder: (context, setState) => StretchSlider(
-              factor: factor,
-              onChanged: (f) => setState(() => factor = f),
-              onChangeEnd: (f) => setState(() {
-                ends.add(f);
-                factor = 1;
-              }),
-              semanticsLabel: 'Step length',
-            ),
-          ),
-        ),
+        body: inList
+            ? ListView(children: [const SizedBox(height: 200), slider, const SizedBox(height: 2000)])
+            : Center(child: slider),
       ),
     );
   }
@@ -138,6 +142,60 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     expect(host.ends, hasLength(1));
     semantics.dispose();
+  });
+
+  /// A held thumb slides in two moves: in a scroll view the slider's drag
+  /// wins the arena only past the touch slop, and that move is its start.
+  Future<void> slide(WidgetTester tester, TestGesture gesture, double dx) async {
+    await gesture.moveBy(Offset(dx.sign * 20, 0));
+    await tester.pump();
+    await gesture.moveBy(Offset(dx - dx.sign * 20, 0));
+    await tester.pump();
+  }
+
+  testWidgets('a touch off the thumb that turns into a scroll leaves the next thumb drag working', (tester) async {
+    final host = _Host();
+    await tester.pumpWidget(host.build(inList: true));
+    var rect = tester.getRect(slider);
+    // Rest on the track off the thumb past the tap deadline, then scroll.
+    final stray = await tester.startGesture(rect.center + const Offset(150, 0));
+    await tester.pump(const Duration(milliseconds: 150));
+    await stray.moveBy(const Offset(0, 60));
+    await tester.pump();
+    await stray.up();
+    await tester.pumpAndSettle();
+    expect(host.ends, isEmpty);
+
+    rect = tester.getRect(slider);
+    final drag = await tester.startGesture(rect.center);
+    await tester.pump();
+    await slide(tester, drag, 100);
+    expect(host.factor, greaterThan(1), reason: 'the stray touch did not jam the slider');
+    await drag.up();
+    await tester.pump();
+    expect(host.ends, hasLength(1));
+    expect(host.ends.single, greaterThan(1));
+  });
+
+  testWidgets('a hold on the thumb that turns into a scroll does not arm a later touch on the track', (tester) async {
+    final host = _Host();
+    await tester.pumpWidget(host.build(inList: true));
+    var rect = tester.getRect(slider);
+    final hold = await tester.startGesture(rect.center);
+    await tester.pump(const Duration(milliseconds: 150));
+    await hold.moveBy(const Offset(0, 60));
+    await tester.pump();
+    await hold.up();
+    await tester.pumpAndSettle();
+
+    rect = tester.getRect(slider);
+    final stray = await tester.startGesture(Offset(rect.left + 40, rect.center.dy));
+    await tester.pump();
+    await slide(tester, stray, 100);
+    expect(host.factor, 1, reason: 'a touch off the thumb moves nothing');
+    await stray.up();
+    await tester.pump();
+    expect(host.ends.where((f) => f != 1), isEmpty, reason: 'and saves nothing');
   });
 
   testWidgets('stands at least 56 px tall and carries its label', (tester) async {

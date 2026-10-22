@@ -93,15 +93,17 @@ class _StartViewState extends ConsumerState<StartView> {
                 ? 'after ${formatWords(sitUpRest)} of rest to get ready'
                 : 'then rest for ${formatWords(sitUpRest)}',
             onPressed: () => _start(
-              // The same round the task screen and the picker start for
-              // this step, when it exists.
+              // The step's own round (its ladder rest, no long rest) when it
+              // exists, but always exactly two minutes: the button says so,
+              // and the floor is a promise whatever the step's length has
+              // been stretched to on the task screen.
               config: sitUpTask != null && sitUpRung != null
                   ? LadderRests.roundFor(
                       base: settings.timerConfig,
                       task: sitUpTask,
                       step: sitUpRung,
                       fallbackUnit: settings.rest,
-                    )
+                    ).copyWith(approach: _sitUpApproach)
                   : settings.timerConfig.copyWith(
                       approach: _sitUpApproach,
                       rest: sitUpRest,

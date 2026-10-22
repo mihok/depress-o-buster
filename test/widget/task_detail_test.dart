@@ -29,7 +29,9 @@ class _Harness {
   final SettingsService settingsService;
   final AppSettings settings;
 
-  Future<void> pump(WidgetTester tester) async {
+  /// The screen alone, or ([pushed]) a route above a home Scaffold, as in
+  /// the app, where the messenger shows every bar on both.
+  Future<void> pump(WidgetTester tester, {bool pushed = false}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -39,12 +41,29 @@ class _Harness {
         ],
         child: MaterialApp(
           theme: AppTheme.dark(),
-          home: TaskDetailScreen(taskId: task.id),
+          home: pushed
+              ? Scaffold(
+                  body: Center(
+                    child: Builder(
+                      builder: (ctx) => TextButton(
+                        onPressed: () => Navigator.of(ctx).push(
+                          MaterialPageRoute<void>(builder: (_) => TaskDetailScreen(taskId: task.id)),
+                        ),
+                        child: const Text('Open'),
+                      ),
+                    ),
+                  ),
+                )
+              : TaskDetailScreen(taskId: task.id),
         ),
       ),
     );
     await tester.pump();
     await tester.pump();
+    if (pushed) {
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+    }
   }
 
   /// Drift queries awaited directly in the fake-async test zone can stall
@@ -417,11 +436,156 @@ void main() {
     await tester.pump();
     await _slide(tester, gesture, 120);
     expect(find.text('Rest 30 min · Step 1 min'), findsOneWidget, reason: 'the preview is capped like the save');
+    expect(find.text('Rest unit 30 min, this task\'s own'), findsOneWidget, reason: 'the preview is the unit itself, so its source stays');
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(find.text('The rest unit stays at 30 min, the longest'), findsOneWidget);
+    expect(find.text('The rest unit stays at 30 min, the longest it goes'), findsOneWidget);
     expect(find.text('Undo'), findsNothing);
     expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, LadderRests.maxUnit);
+
+    // Pushed longer again while a burst bar is up: the note joins the
+    // bar's own words, which still say what its Undo does. (The quiet note
+    // above has four seconds; let it go first.)
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    final shorter = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, shorter, -120);
+    await shorter.up();
+    await tester.pumpAndSettle();
+    final saved = (await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit!;
+    expect(find.text('Rest unit is now ${formatWords(saved)}'), findsOneWidget);
+    await tester.runAsync(() => h.repo.setRestUnit(h.task.id, LadderRests.maxUnit));
+    await tester.pump();
+    await tester.pump();
+    final longer = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, longer, 120);
+    await longer.up();
+    await tester.pumpAndSettle();
+    expect(find.text('Rest unit is now ${formatWords(saved)} (the longest it goes)'), findsOneWidget);
+    expect(find.text('Undo'), findsOneWidget);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('the floor says so too, and a tap on a unit off the rounding grid says nothing', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await tester.runAsync(() => h.repo.setRestUnit(h.task.id, const Duration(minutes: 2, seconds: 45)));
+    await h.pump(tester);
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+
+    // A plain tap on the thumb is a ×1 release: nothing to say.
+    await tester.tap(find.byType(Slider).last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('stays at'), findsNothing);
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, const Duration(minutes: 2, seconds: 45));
+
+    await tester.runAsync(() => h.repo.setRestUnit(h.task.id, LadderRests.minUnit));
+    await tester.pump();
+    await tester.pump();
+    final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, gesture, -120);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('The rest unit stays at 30 sec, the shortest it goes'), findsOneWidget);
+    expect(find.text('Undo'), findsNothing);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('Undo tapped while the bar is on its way out still puts things back', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester);
+    final original = (await h.ladder(tester)).map((s) => s.suggestedDuration).toList();
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).first).center);
+    await tester.pump();
+    await _slide(tester, gesture, 120);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), isNot(original));
+
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Undo'), findsOneWidget, reason: 'still drawn during the exit');
+    await tester.tap(find.text('Undo'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), original);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('Undo still works from the screen beneath after going back', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester, pushed: true);
+    final original = (await h.ladder(tester)).map((s) => s.suggestedDuration).toList();
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).first).center);
+    await tester.pump();
+    await _slide(tester, gesture, 120);
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailScreen), findsNothing);
+    expect(find.text('Undo'), findsOneWidget, reason: 'the bar belongs to the app, not the screen');
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), original);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('a burst bar dismissed behind one "Step removed" never takes the next one with it', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester, pushed: true);
+    final before = await h.ladder(tester);
+
+    await tester.drag(find.text('Stand in the bathroom'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Step removed'), findsOneWidget);
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, gesture, -120);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('Turn the water on'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn the water on'), findsNothing);
+
+    // The first bar times out; the dismissed burst bar passes through; the
+    // second "Step removed" must still get its six seconds.
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(find.text('Step removed'), findsOneWidget, reason: 'the second removal keeps its way back');
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn the water on'), findsOneWidget);
+    expect((await h.ladder(tester)).map((s) => s.text), before.where((s) => s.text != 'Stand in the bathroom').map((s) => s.text));
 
     await h.tearDown(tester);
   });
@@ -429,7 +593,7 @@ void main() {
   testWidgets('a Settings rest outside the range is shown as kept to it', (tester) async {
     final h = await _harness(settings: const AppSettings(rest: Duration(minutes: 45)));
     await h.pump(tester);
-    expect(find.text('Rest unit 30 min, from Settings (45 min), kept to 30 min'), findsOneWidget);
+    expect(find.text('Rest unit 30 min, the most a unit can be (Settings: 45 min)'), findsOneWidget);
     expect(find.text('Rest 30 min · Step 1 min'), findsOneWidget);
     expect(find.text('Rest 30 min · Step 2 min'), findsOneWidget);
     expect(find.text('Rest 1 hr · Step 30 sec'), findsOneWidget);

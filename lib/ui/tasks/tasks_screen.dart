@@ -136,7 +136,7 @@ class _NewTaskDialogState extends State<_NewTaskDialog> {
     final when = widget.restFirst ? 'before' : 'after';
     final kept = widget.restUnit == widget.settingsRest
         ? ''
-        : ' (the Settings rest, kept to ${formatWords(widget.restUnit)})';
+        : ', from Settings (${formatWords(widget.settingsRest)}) kept to ${formatWords(widget.restUnit)}';
     return AlertDialog(
       title: const Text('New task'),
       // The preview has to fit above the keyboard on a small phone.
