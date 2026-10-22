@@ -4,10 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../services/providers.dart';
 import '../../services/settings/settings_service.dart';
 import '../widgets/duration_picker_tile.dart';
 import '../widgets/illustration.dart';
+
+/// What the Settings rest is for: a plain round's rest, and the unit the
+/// steps of a task climb from, kept within the range a unit can have.
+String _restHint(Duration rest) {
+  final unit = LadderRests.clampUnit(rest);
+  final range = 'a unit stays within ${formatWords(LadderRests.minUnit)} to ${formatWords(LadderRests.maxUnit)}';
+  return unit == rest
+      ? 'For a plain round, the rest each time. For the steps of a task, the rest unit ($range): '
+            'each step rests 1, 1, 2, 3, 5, 8 or 13 times this, unless the task has a unit of its own.'
+      : 'For a plain round, the rest each time. For the steps of a task, the rest unit is '
+            '${formatWords(unit)} ($range): each step rests 1, 1, 2, 3, 5, 8 or 13 times that, unless the '
+            'task has a unit of its own.';
+}
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -33,8 +47,7 @@ class SettingsScreen extends ConsumerWidget {
           DurationPickerTile(
             title: 'Rest',
             value: settings.rest,
-            hint: 'For a plain round, the rest each time. For the steps of a task, the rest unit: '
-                'each step rests 1, 1, 2, 3, 5, 8 or 13 times this, unless the task has a unit of its own.',
+            hint: _restHint(settings.rest),
             onChanged: (d) => notifier.update((s) => s.copyWith(rest: d, clearLastPresetId: true)),
           ),
           SwitchListTile(

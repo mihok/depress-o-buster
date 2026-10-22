@@ -21,12 +21,13 @@ const _ladder = [
 ];
 
 class _Harness {
-  _Harness(this.db, this.repo, this.task, this.settingsService);
+  _Harness(this.db, this.repo, this.task, this.settingsService, this.settings);
 
   final AppDatabase db;
   final TaskRepository repo;
   final Task task;
   final SettingsService settingsService;
+  final AppSettings settings;
 
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(
@@ -34,7 +35,7 @@ class _Harness {
         overrides: [
           databaseProvider.overrideWithValue(db),
           settingsServiceProvider.overrideWithValue(settingsService),
-          initialSettingsProvider.overrideWithValue(const AppSettings()),
+          initialSettingsProvider.overrideWithValue(settings),
         ],
         child: MaterialApp(
           theme: AppTheme.dark(),
@@ -61,7 +62,7 @@ class _Harness {
   }
 }
 
-Future<_Harness> _harness() async {
+Future<_Harness> _harness({AppSettings settings = const AppSettings()}) async {
   // Synchronous stream close keeps drift from scheduling zero-delay timers
   // that flutter_test would report as pending at the end of the test.
   final db = AppDatabase(
@@ -70,8 +71,19 @@ Future<_Harness> _harness() async {
   final repo = TaskRepository(db);
   final task = await repo.createTask('Shower', ladder: _ladder);
   final settingsService = SettingsService(prefs: InMemoryKeyValueStore(), secrets: InMemorySecretStore());
-  await settingsService.save(const AppSettings());
-  return _Harness(db, repo, task, settingsService);
+  await settingsService.save(settings);
+  return _Harness(db, repo, task, settingsService, settings);
+}
+
+/// Slide a held thumb by [dx]. In a scroll view the slider's drag recognizer
+/// wins the gesture arena only once the touch slop is crossed, and Flutter
+/// folds that first move into the drag's start, so the move comes in two
+/// parts, as a finger's would.
+Future<void> _slide(WidgetTester tester, TestGesture gesture, double dx) async {
+  await gesture.moveBy(Offset(dx.sign * 20, 0));
+  await tester.pump();
+  await gesture.moveBy(Offset(dx - dx.sign * 20, 0));
+  await tester.pump();
 }
 
 void main() {
@@ -151,8 +163,7 @@ void main() {
     final slider = tester.getRect(sliders.first);
     final gesture = await tester.startGesture(slider.center);
     await tester.pump();
-    await gesture.moveBy(const Offset(120, 0));
-    await tester.pump();
+    await _slide(tester, gesture, 120);
 
     expect(find.text('×1'), findsNothing, reason: 'the label follows the drag');
     expect(find.textContaining(RegExp(r'^×\d(\.\d\d?)?$')), findsOneWidget, reason: 'a readable factor');
@@ -178,6 +189,10 @@ void main() {
   });
 
   testWidgets('the rest unit slider rescales every rest and saves the unit on the task', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final h = await _harness();
     await h.pump(tester);
     await tester.tap(find.text('Adjust step length and rest unit'));
@@ -187,8 +202,7 @@ void main() {
     final slider = tester.getRect(find.byType(Slider).last);
     final gesture = await tester.startGesture(slider.center);
     await tester.pump();
-    await gesture.moveBy(const Offset(-120, 0));
-    await tester.pump();
+    await _slide(tester, gesture, -120);
     expect(find.text('Rest 10 min · Step 1 min'), findsNothing, reason: 'rests shrink live while held');
     await gesture.up();
     await tester.pumpAndSettle();
@@ -221,8 +235,7 @@ void main() {
     Future<void> release() async {
       final gesture = await tester.startGesture(slider.center);
       await tester.pump();
-      await gesture.moveBy(const Offset(120, 0));
-      await tester.pump();
+      await _slide(tester, gesture, 120);
       await gesture.up();
       await tester.pumpAndSettle();
     }
@@ -266,8 +279,7 @@ void main() {
     final slider = tester.getRect(find.byType(Slider).last);
     final gesture = await tester.startGesture(slider.center);
     await tester.pump();
-    await gesture.moveBy(const Offset(-120, 0));
-    await tester.pump();
+    await _slide(tester, gesture, -120);
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -315,6 +327,112 @@ void main() {
     expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, const Duration(minutes: 5));
     expect(find.text('Rest unit 5 min, this task\'s own'), findsOneWidget);
 
+    await h.tearDown(tester);
+  });
+
+  testWidgets('a release during the bar\'s exit starts a fresh bar with the right way back', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester);
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final slider = tester.getRect(find.byType(Slider).first);
+
+    Future<void> release() async {
+      final gesture = await tester.startGesture(slider.center);
+      await tester.pump();
+      await _slide(tester, gesture, 120);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await release();
+    final afterFirst = (await h.ladder(tester)).map((s) => s.suggestedDuration).toList();
+    // The six seconds run out; the bar is on its way out when the next
+    // release lands.
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(milliseconds: 100));
+    await release();
+    expect(find.text('Undo'), findsOneWidget, reason: 'a bar of its own, not a word on a bar that is leaving');
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), afterFirst, reason: 'back to before the second release only');
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('both sliders within six seconds share one Undo that puts both back', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester);
+    final original = (await h.ladder(tester)).map((s) => s.suggestedDuration).toList();
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+
+    final rest = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, rest, -120);
+    await rest.up();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Rest unit is now'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+
+    final step = await tester.startGesture(tester.getRect(find.byType(Slider).first).center);
+    await tester.pump();
+    await _slide(tester, step, 120);
+    await step.up();
+    await tester.pumpAndSettle();
+    expect(find.text('Step times and rest unit changed'), findsOneWidget);
+    expect(find.text('Undo'), findsOneWidget, reason: 'one bar, the latest change on it');
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, isNotNull);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, isNull);
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), original);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('pushing the rest unit past its longest says so, without an Undo', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await tester.runAsync(() => h.repo.setRestUnit(h.task.id, LadderRests.maxUnit));
+    await h.pump(tester);
+    expect(find.text('Rest unit 30 min, this task\'s own'), findsOneWidget);
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('the rest unit stays within 30 sec to 30 min'), findsOneWidget);
+
+    final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, gesture, 120);
+    expect(find.text('Rest 30 min · Step 1 min'), findsOneWidget, reason: 'the preview is capped like the save');
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('The rest unit stays at 30 min, the longest'), findsOneWidget);
+    expect(find.text('Undo'), findsNothing);
+    expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, LadderRests.maxUnit);
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('a Settings rest outside the range is shown as kept to it', (tester) async {
+    final h = await _harness(settings: const AppSettings(rest: Duration(minutes: 45)));
+    await h.pump(tester);
+    expect(find.text('Rest unit 30 min, from Settings (45 min), kept to 30 min'), findsOneWidget);
+    expect(find.text('Rest 30 min · Step 1 min'), findsOneWidget);
+    expect(find.text('Rest 30 min · Step 2 min'), findsOneWidget);
+    expect(find.text('Rest 1 hr · Step 30 sec'), findsOneWidget);
     await h.tearDown(tester);
   });
 

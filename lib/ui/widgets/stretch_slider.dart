@@ -93,6 +93,28 @@ class _StretchSliderState extends State<StretchSlider> {
   /// Between onChangeStart and onChangeEnd; only then do pointer moves count.
   bool _held = false;
 
+  /// A finger (or mouse button) is down on the slider. The Slider brackets a
+  /// keyboard or screen-reader step with its own onChangeStart/onChangeEnd,
+  /// even in the middle of a drag; that end must not end the drag.
+  bool _pointerDown = false;
+
+  /// Whether the touch that started the current interaction landed on the
+  /// thumb. Only the thumb moves the factor: a touch elsewhere on the track
+  /// is ignored from start to end, so it can never jump the value and save
+  /// it on release. Judged here from the raw down position, because
+  /// SliderInteraction.slideThumb judges it where the drag is accepted
+  /// (past the touch slop, once the slider shares the gesture arena with a
+  /// scroll view), not where the finger landed.
+  bool _onThumb = true;
+  bool _ignoring = false;
+
+  /// The grab circle around the thumb, and the track's inset from either
+  /// end of the slider (the overlay radius, wider than the thumb).
+  static const double _grab = 28;
+
+  /// The slider's width, from the last layout.
+  double _width = 0;
+
   /// The pointer's x from the last down or move, with the maximum end on the
   /// right whatever the text direction, so outward is plus on either side.
   double _pointerX = 0;
@@ -123,6 +145,12 @@ class _StretchSliderState extends State<StretchSlider> {
   }
 
   void _handleStart(double logFactor) {
+    // A keyboard step while a finger holds the thumb joins the drag.
+    if (_held || _ignoring) return;
+    if (_pointerDown && !_onThumb) {
+      _ignoring = true;
+      return;
+    }
     _moves = 0;
     _held = true;
     _stoppedSide = 0;
@@ -133,12 +161,14 @@ class _StretchSliderState extends State<StretchSlider> {
   }
 
   void _handleChanged(double logFactor) {
+    if (_ignoring) return;
     final span = math.log(_hi) - math.log(_lo);
     _t = ((logFactor - math.log(_lo)) / span).clamp(0.0, 1.0).toDouble();
     if (!_held) {
-      // A keyboard or screen-reader step arrives with no drag around it:
-      // nothing holds and nothing will release, so it is one whole change,
-      // never a stretch.
+      // The Slider brackets every change with onChangeStart and
+      // onChangeEnd, keyboard and screen-reader steps included, so this is
+      // not expected; should a change ever arrive bare, it is one whole
+      // change and never a stretch, since nothing would release it.
       _emit(_factorAt(_t));
       _handleEnd(logFactor);
       return;
@@ -168,7 +198,21 @@ class _StretchSliderState extends State<StretchSlider> {
   /// The slider reports only clamped values and skips repeats, so once the
   /// finger is past the end of the track it goes quiet however the finger
   /// moves. The raw pointer still arrives here, and decides.
+  /// Where the thumb's centre sits, in the slider's own coordinates.
+  Offset get _thumbCenter {
+    final factor = widget.factor.clamp(_floor, _ceiling).toDouble();
+    final lo = math.log(math.min(_lo, factor));
+    final hi = math.log(math.max(_hi, factor));
+    final t = hi == lo ? 0.5 : (math.log(factor).clamp(lo, hi) - lo) / (hi - lo);
+    final along = Directionality.of(context) == TextDirection.rtl ? 1 - t : t;
+    return Offset(_grab + along * (_width - 2 * _grab), 28);
+  }
+
   void _handlePointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      _pointerDown = true;
+      _onThumb = (event.localPosition - _thumbCenter).distance <= _grab;
+    }
     final x = event.position.dx;
     _pointerX = Directionality.of(context) == TextDirection.rtl ? -x : x;
     if (!_held) return;
@@ -204,6 +248,13 @@ class _StretchSliderState extends State<StretchSlider> {
   }
 
   void _handleEnd(double logFactor) {
+    // The end of a keyboard step while the finger is still down: the drag
+    // goes on, and the finger's own release reports once.
+    if (_pointerDown) return;
+    if (_ignoring) {
+      _ignoring = false;
+      return;
+    }
     _setSide(0);
     _held = false;
     _stoppedSide = 0;
@@ -231,19 +282,23 @@ class _StretchSliderState extends State<StretchSlider> {
             child: MergeSemantics(
               child: Semantics(
                 label: widget.semanticsLabel,
-                child: SizedBox(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    _width = constraints.maxWidth;
+                    return SizedBox(
                   height: 56,
                   // The raw pointer keeps arriving here after the finger has
                   // left the slider, which the stretch rule needs.
                   child: Listener(
                     onPointerDown: _handlePointer,
                     onPointerMove: _handlePointer,
+                    onPointerUp: (_) => _pointerDown = false,
+                    onPointerCancel: (_) => _pointerDown = false,
                     child: SliderTheme(
-                      // With slideThumb only a touch inside the overlay
-                      // circle grabs the thumb, so the circle is the touch
-                      // target: 56 px, the app's minimum, not the 48 default.
+                      // The overlay circle is the touch target: 56 px, the
+                      // app's minimum, not the 48 default; [_grab] matches it.
                       data: SliderTheme.of(context).copyWith(
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 28),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: _grab),
                       ),
                       child: Slider(
                         value: math.log(factor).clamp(lo, hi).toDouble(),
@@ -251,9 +306,9 @@ class _StretchSliderState extends State<StretchSlider> {
                         max: hi,
                         activeColor: theme.colorScheme.primary,
                         // A touch on the track must not jump the value (and
-                        // then save it on release): only the thumb moves the
-                        // factor.
-                        allowedInteraction: SliderInteraction.slideThumb,
+                        // then save it on release): the value only slides,
+                        // and only from a touch on the thumb (see [_onThumb]).
+                        allowedInteraction: SliderInteraction.slideOnly,
                         semanticFormatterCallback: (v) =>
                             '×${math.exp(v).toStringAsFixed(2)}',
                         onChangeStart: _handleStart,
@@ -262,6 +317,8 @@ class _StretchSliderState extends State<StretchSlider> {
                       ),
                     ),
                   ),
+                );
+                  },
                 ),
               ),
             ),

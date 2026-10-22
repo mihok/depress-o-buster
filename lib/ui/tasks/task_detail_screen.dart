@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
@@ -38,11 +39,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   double _restFactor = 1;
   bool _draggingRest = false;
 
-  /// The Undo bar for a burst of releases of each slider. Undo puts back
-  /// what was there before the first release of the burst, not the last;
-  /// the burst ends when its bar closes.
-  _BurstBar? _stepBar;
-  _BurstBar? _restBar;
+  /// The Undo bar for a burst of slider releases, of either slider or both.
+  /// Undo puts back what was there before the first release of the burst,
+  /// not the last; the burst ends when its bar closes.
+  _BurstBar? _burst;
 
   /// Steps swiped away and hidden at once, so a dismissed tile leaves the
   /// tree in the same frame whatever the database does. An undo unhides.
@@ -84,6 +84,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     // The preview is the same function of the factor as the save, so what
     // is shown while holding is what a release gives.
     final shownUnit = _restFactor == 1 ? unit : LadderRests.clampUnit(LadderRests.scaleUnit(unit, _restFactor));
+    final unitSource = t.restUnit != null
+        ? 'this task\'s own'
+        : settings.rest == unit
+        ? 'from Settings'
+        : 'from Settings (${formatWords(settings.rest)}), kept to ${formatWords(unit)}';
 
     return Scaffold(
       appBar: AppBar(
@@ -114,24 +119,31 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
-            child: Text(
-              'Each step\'s rest comes from its place in the ladder, not its length: '
-              'move a step and its rest moves with it.',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-          // The stretch sliders and the full explanation fold away so the
-          // ladder stays in view; the tiles preview live while a slider is
-          // held.
-          Card(
+          Expanded(
+            // One scrollable for the reminder, the fold and the steps, so an
+            // unfolded card scrolls instead of squeezing the ladder off a
+            // small screen.
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                    child: Text(
+                      'Each step\'s rest comes from its place in the ladder, not its length: '
+                      'move a step and its rest moves with it.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ),
+                // The stretch sliders and the full explanation fold away so
+                // the ladder stays in view; the tiles preview live while a
+                // slider is held.
+                SliverToBoxAdapter(
+                  child: Card(
             margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
             child: ExpansionTile(
               title: Text(hasTimes ? 'Adjust step length and rest unit' : 'Adjust rest unit'),
-              subtitle: Text(
-                'Rest unit ${formatWords(shownUnit)}, ${t.restUnit == null ? 'from Settings' : 'this task\'s own'}',
-              ),
+              subtitle: Text('Rest unit ${formatWords(shownUnit)}, $unitSource'),
               shape: const Border(),
               collapsedShape: const Border(),
               // Keep the sliders alive while folded, so a drag is never cut
@@ -175,29 +187,34 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Hold a slider at either end and it keeps going, up to ten times each release. '
-                    'Each release can be undone.',
+                    'Hold a slider at either end and it keeps going, up to ten times each release; '
+                    'the rest unit stays within ${formatWords(LadderRests.minUnit)} to '
+                    '${formatWords(LadderRests.maxUnit)}. Each release can be undone.',
                     style: theme.textTheme.bodySmall,
                   ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: ladder.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'No steps yet. Add one, or break the task down.',
-                        style: theme.textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
+                  ),
+                ),
+                if (ladder.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No steps yet. Add one, or break the task down.',
+                          style: theme.textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
                   )
-                : ReorderableListView.builder(
+                else
+                  SliverPadding(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                    buildDefaultDragHandles: false,
+                    sliver: SliverReorderableList(
                     itemCount: shown.length,
                     onReorderItem: (oldIndex, newIndex) => repo.reorderSteps(t.id, oldIndex, newIndex),
                     itemBuilder: (context, index) {
@@ -236,6 +253,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       );
                     },
                   ),
+                  ),
+              ],
+            ),
           ),
           SafeArea(
             top: false,
@@ -277,47 +297,33 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     _draggingSlider = false;
     if (factor == 1) return;
     final repo = ref.read(taskRepositoryProvider);
-    // Several releases in a row count as one change: Undo goes back to
-    // before the first of them, which is read before anything is saved.
-    final open = _stepBar?.open ?? false;
-    final before = open ? null : await repo.ladder(task.id);
+    // What Undo puts back, read before anything is saved. Hand-set times
+    // are precious: the previous ones can be put back.
+    final before = await repo.ladder(task.id);
     final changed = await repo.scaleStepDurations(task.id, factor);
     if (!mounted) return;
     if (changed == 0) {
       setState(() => _previewFactor = 1);
       return;
     }
-    final text = changed == 1 ? 'One step time changed' : '$changed step times changed';
-    if (open) {
-      _stepBar!.touch(text);
-      return;
-    }
-    // Hand-set times are precious: the previous ones can be put back.
-    late final _BurstBar bar;
-    bar = _BurstBar(
-      ScaffoldMessenger.of(context),
-      text: text,
-      onUndo: () async {
-        try {
-          await repo.restoreStepDurations(task.id, before!);
-        } catch (e) {
-          debugPrint('restoreStepDurations failed: $e');
-        }
-      },
-      onClosed: () {
-        if (identical(_stepBar, bar)) _stepBar = null;
-      },
+    _joinBurst(
+      task,
+      (bar) => bar.stepsBefore ??= before,
+      changed == 1 ? 'One step time changed' : '$changed step times changed',
     );
-    _stepBar = bar;
   }
 
   /// The rest slider was let go: save the new unit for this task, with a
-  /// way back. The slider returns to ×1 once the task stream echoes.
+  /// way back. The slider returns to ×1 once the task stream echoes. A
+  /// release that would only push past an end of the range says so.
   Future<void> _applyRestUnit(Task task, Duration unit, double factor) async {
     _draggingRest = false;
-    final next = LadderRests.clampUnit(LadderRests.scaleUnit(unit, factor));
+    final raw = LadderRests.scaleUnit(unit, factor);
+    final next = LadderRests.clampUnit(raw);
     if (factor == 1 || next == unit) {
-      if (mounted) setState(() => _restFactor = 1);
+      if (!mounted) return;
+      setState(() => _restFactor = 1);
+      if (raw != unit) _sayAtEnd(next);
       return;
     }
     await _changeRestUnit(task, next, 'Rest unit is now ${formatWords(next)}');
@@ -332,30 +338,68 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   /// Settings".
   Future<void> _changeRestUnit(Task task, Duration? next, String text) async {
     final repo = ref.read(taskRepositoryProvider);
-    final open = _restBar?.open ?? false;
     final before = task.restUnit;
     await repo.setRestUnit(task.id, next);
     if (!mounted) return;
-    if (open) {
-      _restBar!.touch(text);
+    _joinBurst(task, (bar) {
+      if (!bar.restTouched) {
+        bar.restTouched = true;
+        bar.restBefore = before;
+      }
+    }, text);
+  }
+
+  /// A change joins the open burst, or starts one. [remember] records what
+  /// this change's slider had before, the first time it joins; the bar then
+  /// shows [text], or names both when both sliders have been used.
+  void _joinBurst(Task task, void Function(_BurstBar bar) remember, String text) {
+    final open = _burst;
+    if (open != null && open.open) {
+      remember(open);
+      open.touch(open.stepsBefore != null && open.restTouched ? 'Step times and rest unit changed' : text);
       return;
     }
     late final _BurstBar bar;
     bar = _BurstBar(
       ScaffoldMessenger.of(context),
       text: text,
-      onUndo: () async {
-        try {
-          await repo.setRestUnit(task.id, before);
-        } catch (e) {
-          debugPrint('setRestUnit failed: $e');
-        }
-      },
+      onUndo: () => _undoBurst(task, bar),
       onClosed: () {
-        if (identical(_restBar, bar)) _restBar = null;
+        if (identical(_burst, bar)) _burst = null;
       },
     );
-    _restBar = bar;
+    remember(bar);
+    _burst = bar;
+  }
+
+  /// Put back whatever the burst changed: the step times, the rest unit, or
+  /// both. The task may be gone by now; then there is nothing to put back.
+  Future<void> _undoBurst(Task task, _BurstBar bar) async {
+    final repo = ref.read(taskRepositoryProvider);
+    try {
+      final steps = bar.stepsBefore;
+      if (steps != null) await repo.restoreStepDurations(task.id, steps);
+      if (bar.restTouched) await repo.setRestUnit(task.id, bar.restBefore);
+    } catch (e) {
+      debugPrint('undo failed: $e');
+    }
+  }
+
+  /// The rest slider was pushed past an end of the unit's range: nothing
+  /// changed, and the person is told why, through the open bar when there
+  /// is one (its Undo still stands), quietly otherwise.
+  void _sayAtEnd(Duration unit) {
+    final text = unit == LadderRests.maxUnit
+        ? 'The rest unit stays at ${formatWords(unit)}, the longest'
+        : 'The rest unit stays at ${formatWords(unit)}, the shortest';
+    final open = _burst;
+    if (open != null && open.open) {
+      open.touch(text);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 4)),
+    );
   }
 
   /// Remove a step with a quiet way back. Undo restores the very same step
@@ -365,8 +409,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final repo = ref.read(taskRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _removedIds.add(step.id));
-    _stepBar?.dismiss();
-    _restBar?.dismiss();
+    _burst?.dismiss();
     await repo.deleteStep(task.id, step.id);
     messenger.showSnackBar(
       SnackBar(
@@ -779,7 +822,16 @@ class _BurstBar {
         // so a later release can start the six seconds again.
         persist: true,
         onVisible: _onVisible,
-        action: SnackBarAction(label: 'Undo', onPressed: onUndo),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            // The tap closes the bar; a bar on its way out, or one that was
+            // dismissed before it appeared, undoes nothing.
+            if (!open) return;
+            _closing = true;
+            onUndo();
+          },
+        ),
       ),
     );
     _controller.closed.then((_) {
@@ -791,18 +843,25 @@ class _BurstBar {
 
   static const Duration _lifetime = Duration(seconds: 6);
 
+  /// What was there before the burst, for whichever sliders it has used.
+  List<LadderStep>? stepsBefore;
+  bool restTouched = false;
+  Duration? restBefore;
+
   final ScaffoldMessengerState _messenger;
   final ValueNotifier<String> _text;
   late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> _controller;
   Timer? _timer;
   bool _visible = false;
   bool _dismissed = false;
+  bool _closing = false;
 
   /// True once the bar is gone, whatever closed it.
   bool closed = false;
 
-  /// Whether another release can still join this burst.
-  bool get open => !closed && !_dismissed;
+  /// Whether another release can still join this burst: not once the bar
+  /// is gone, on its way out, or dismissed before it appeared.
+  bool get open => !closed && !_closing && !_dismissed;
 
   /// Another release in the same burst: new words, six more seconds.
   void touch(String text) {
@@ -820,7 +879,11 @@ class _BurstBar {
   void _onVisible() {
     _visible = true;
     if (_dismissed) {
-      _close();
+      // Dismissed while it waited its turn: it leaves at once, with no exit
+      // animation to tap an Undo on.
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!closed && _messenger.mounted) _messenger.removeCurrentSnackBar();
+      });
       return;
     }
     _countdown();
@@ -833,6 +896,8 @@ class _BurstBar {
 
   /// Only a bar that is still up, on a messenger that is still there.
   void _close() {
-    if (!closed && _messenger.mounted) _controller.close();
+    if (closed || !_messenger.mounted) return;
+    _closing = true;
+    _controller.close();
   }
 }

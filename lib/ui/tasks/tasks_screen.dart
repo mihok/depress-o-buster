@@ -55,7 +55,7 @@ class TasksScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => _NewTaskDialog(
         approach: settings.approach,
-        restUnit: LadderRests.clampUnit(settings.rest),
+        settingsRest: settings.rest,
         restFirst: settings.restFirst,
       ),
     );
@@ -94,13 +94,16 @@ class _TaskTile extends ConsumerWidget {
 /// Asks for a title and shows, as it is typed, the ladder the task will
 /// get: how many steps, how long each is, and the rest that goes with each.
 class _NewTaskDialog extends StatefulWidget {
-  const _NewTaskDialog({required this.approach, required this.restUnit, required this.restFirst});
+  const _NewTaskDialog({required this.approach, required this.settingsRest, required this.restFirst});
 
   /// The usual approach, used by any step without a time of its own.
   final Duration approach;
 
-  /// The rest unit the new task's steps will climb from (the Settings rest).
-  final Duration restUnit;
+  /// The rest from Settings; the new task's steps climb from it, kept
+  /// within the range a unit can have.
+  final Duration settingsRest;
+
+  Duration get restUnit => LadderRests.clampUnit(settingsRest);
 
   /// Whether each step's rest comes before it or after it.
   final bool restFirst;
@@ -131,8 +134,13 @@ class _NewTaskDialogState extends State<_NewTaskDialog> {
     final steps = [for (final s in ladder) s.suggestedDuration ?? widget.approach];
     final rests = LadderRests.restsFor(widget.restUnit, ladder.length);
     final when = widget.restFirst ? 'before' : 'after';
+    final kept = widget.restUnit == widget.settingsRest
+        ? ''
+        : ' (the Settings rest, kept to ${formatWords(widget.restUnit)})';
     return AlertDialog(
       title: const Text('New task'),
+      // The preview has to fit above the keyboard on a small phone.
+      scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -156,7 +164,7 @@ class _NewTaskDialogState extends State<_NewTaskDialog> {
           const SizedBox(height: 6),
           Text('Steps: ${formatSeries(steps)}', style: small),
           const SizedBox(height: 6),
-          Text('Rest $when each step: ${formatSeries(rests)}', style: small),
+          Text('Rest $when each step$kept: ${formatSeries(rests)}', style: small),
           const SizedBox(height: 6),
           Text('Every step and the rest unit can be changed on the next screen.', style: small),
         ],

@@ -15,24 +15,41 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
-  testWidgets('the New task dialog shows the ladder, its step lengths and its rests as the title is typed', (tester) async {
+  Future<void> pump(WidgetTester tester, {AppSettings settings = const AppSettings()}) async {
     final db = AppDatabase(DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true));
     final repo = TaskRepository(db);
     await repo.createTask('Shower', ladder: StarterLadders.byTitle['Shower']!);
     final settingsService = SettingsService(prefs: InMemoryKeyValueStore(), secrets: InMemorySecretStore());
-    await settingsService.save(const AppSettings());
+    await settingsService.save(settings);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(db),
           settingsServiceProvider.overrideWithValue(settingsService),
-          initialSettingsProvider.overrideWithValue(const AppSettings()),
+          initialSettingsProvider.overrideWithValue(settings),
         ],
         child: MaterialApp(theme: AppTheme.dark(), home: const TasksScreen()),
       ),
     );
     await tester.pump();
     await tester.pump();
+  }
+
+  testWidgets('a Settings rest outside the range is previewed as kept to it', (tester) async {
+    await pump(tester, settings: const AppSettings(rest: Duration(minutes: 45)));
+    await tester.tap(find.text('New task'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Rest before each step (the Settings rest, kept to 30 min): '
+          '30, 30 min, 1 hr, 1 hr 30 min, 2 hr 30 min, 4 hr, 6 hr 30 min, 6 hr 30 min'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('the New task dialog shows the ladder, its step lengths and its rests as the title is typed', (tester) async {
+    await pump(tester);
 
     await tester.tap(find.text('New task'));
     await tester.pumpAndSettle();

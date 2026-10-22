@@ -93,12 +93,21 @@ class _StartViewState extends ConsumerState<StartView> {
                 ? 'after ${formatWords(sitUpRest)} of rest to get ready'
                 : 'then rest for ${formatWords(sitUpRest)}',
             onPressed: () => _start(
-              config: settings.timerConfig.copyWith(
-                approach: _sitUpApproach,
-                rest: sitUpRest,
-                clearLongRest: true,
-                cyclesBeforeLongRest: 0,
-              ),
+              // The same round the task screen and the picker start for
+              // this step, when it exists.
+              config: sitUpTask != null && sitUpRung != null
+                  ? LadderRests.roundFor(
+                      base: settings.timerConfig,
+                      task: sitUpTask,
+                      step: sitUpRung,
+                      fallbackUnit: settings.rest,
+                    )
+                  : settings.timerConfig.copyWith(
+                      approach: _sitUpApproach,
+                      rest: sitUpRest,
+                      clearLongRest: true,
+                      cyclesBeforeLongRest: 0,
+                    ),
               target: ApproachTarget(
                 taskId: sitUpTask?.id,
                 taskTitle: 'Just sit up',
