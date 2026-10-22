@@ -11,6 +11,7 @@ class DurationPickerTile extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
+    this.hint,
   });
 
   final String title;
@@ -18,11 +19,15 @@ class DurationPickerTile extends StatelessWidget {
   final ValueChanged<Duration> onChanged;
   final String? subtitle;
 
+  /// A second line under the value, when the value alone does not say what
+  /// it is for.
+  final String? hint;
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(title),
-      subtitle: Text(subtitle ?? formatWords(value)),
+      subtitle: Text('${subtitle ?? formatWords(value)}${hint == null ? '' : '\n$hint'}'),
       trailing: const Icon(Icons.edit_outlined),
       onTap: () async {
         final picked = await showDurationDialog(context, title: title, initial: value);

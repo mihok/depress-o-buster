@@ -25,6 +25,25 @@ String formatWords(Duration d) {
   return parts.join(' ');
 }
 
+/// A series of durations on one line. Whole minutes under an hour share one
+/// "min" ("10, 10, 20, 30, 50 min"); anything longer or finer is written out
+/// in words after them ("…, 1 hr 20 min, 2 hr 10 min").
+String formatSeries(Iterable<Duration> series) {
+  final list = series.toList();
+  var compact = 0;
+  while (compact < list.length &&
+      list[compact] > Duration.zero &&
+      list[compact] < const Duration(hours: 1) &&
+      list[compact].inSeconds % 60 == 0) {
+    compact++;
+  }
+  final parts = <String>[
+    if (compact > 0) '${list.take(compact).map((d) => d.inMinutes).join(', ')} min',
+    ...list.skip(compact).map(formatWords),
+  ];
+  return parts.join(', ');
+}
+
 /// "Today", "Yesterday", or "Mon 3 Jun".
 String formatDay(DateTime day, {DateTime? now}) {
   final today = _dateOnly(now ?? DateTime.now());

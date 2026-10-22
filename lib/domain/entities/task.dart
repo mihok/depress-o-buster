@@ -10,6 +10,7 @@ class Task {
     this.note,
     this.archived = false,
     this.sortOrder = 0,
+    this.restUnit,
   });
 
   final String id;
@@ -19,12 +20,18 @@ class Task {
   final bool archived;
   final int sortOrder;
 
+  /// The rest unit this task's steps climb from (see `LadderRests`). Null
+  /// means "the rest from Settings".
+  final Duration? restUnit;
+
   Task copyWith({
     String? title,
     String? note,
     bool clearNote = false,
     bool? archived,
     int? sortOrder,
+    Duration? restUnit,
+    bool clearRestUnit = false,
   }) {
     return Task(
       id: id,
@@ -33,6 +40,7 @@ class Task {
       createdAt: createdAt,
       archived: archived ?? this.archived,
       sortOrder: sortOrder ?? this.sortOrder,
+      restUnit: clearRestUnit ? null : (restUnit ?? this.restUnit),
     );
   }
 
@@ -44,10 +52,11 @@ class Task {
       other.note == note &&
       other.createdAt == createdAt &&
       other.archived == archived &&
-      other.sortOrder == sortOrder;
+      other.sortOrder == sortOrder &&
+      other.restUnit == restUnit;
 
   @override
-  int get hashCode => Object.hash(id, title, note, createdAt, archived, sortOrder);
+  int get hashCode => Object.hash(id, title, note, createdAt, archived, sortOrder, restUnit);
 
   @override
   String toString() => 'Task($id, $title)';

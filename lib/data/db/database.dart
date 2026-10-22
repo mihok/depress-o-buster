@@ -19,6 +19,9 @@ class Tasks extends Table {
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 
+  /// The task's own rest unit in seconds; null follows Settings. Schema 3.
+  IntColumn get restUnitSeconds => integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -110,13 +113,20 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => m.createAll(),
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(sessions, sessions.rungId);
+      if (from < 3) {
+        await m.addColumn(tasks, tasks.restUnitSeconds);
+        // Existing installs get the floor task's gentle rest unit too.
+        await customStatement(
+          "UPDATE tasks SET rest_unit_seconds = 180 WHERE title = 'Just sit up' AND rest_unit_seconds IS NULL",
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

@@ -10,6 +10,7 @@ import 'package:depress_o_buster/services/alarms/alarm_service.dart';
 import 'package:depress_o_buster/services/audio/sound_service.dart';
 import 'package:depress_o_buster/services/providers.dart';
 import 'package:depress_o_buster/services/settings/settings_service.dart';
+import 'package:depress_o_buster/ui/tasks/task_detail_screen.dart';
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -128,7 +129,8 @@ void main() {
     await h.pump(tester);
 
     expect(find.text('Sit up for 2 minutes'), findsOneWidget);
-    expect(find.text('after 10 min of rest to get ready'), findsOneWidget);
+    // "Sit up for 2 minutes" is step 4 of the floor task, whose rest unit is 3 min: ×3 = 9 min.
+    expect(find.text('after 9 min of rest to get ready'), findsOneWidget);
 
     await tester.tap(find.text('Sit up for 2 minutes'));
     await tester.pump();
@@ -136,18 +138,18 @@ void main() {
 
     // The round opens with the rest; the step's alarm is already scheduled.
     expect(find.text('Rest'), findsOneWidget);
-    expect(find.text('10:00'), findsOneWidget);
+    expect(find.text('9:00'), findsOneWidget);
     expect(find.text('Sit up for 2 minutes'), findsOneWidget, reason: 'the step is shown as what the rest prepares for');
     expect(find.text('Time to get ready. The chime says when the step starts.'), findsOneWidget);
     expect(h.alarms.calls, containsAllInOrder(['cancel', 'schedule:rest', 'schedule:approach', 'ongoing:rest']));
 
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('9:59'), findsOneWidget);
+    expect(find.text('8:59'), findsOneWidget);
 
     // More time to get ready, without judgement.
     await tester.tap(find.text('+2 min'));
     await tester.pump();
-    expect(find.text('11:59'), findsOneWidget);
+    expect(find.text('10:59'), findsOneWidget);
 
     // Ready now: the step starts at once; the rest is logged as completed.
     await tester.pump(const Duration(milliseconds: 800));
@@ -203,7 +205,7 @@ void main() {
   testWidgets('the classic order is one switch away: approach first, then rest', (tester) async {
     final h = await _harness(settings: const AppSettings(restFirst: false));
     await h.pump(tester);
-    expect(find.text('then rest for 10 min'), findsOneWidget);
+    expect(find.text('then rest for 9 min'), findsOneWidget);
     await tester.tap(find.text('Sit up for 2 minutes'));
     await tester.pump();
     await tester.pump();
@@ -216,7 +218,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest'), findsOneWidget);
-    expect(find.text('10:00'), findsOneWidget);
+    expect(find.text('9:00'), findsOneWidget);
     // The second tap of a double tap lands on "End rest early": ignored.
     await tester.pump(const Duration(milliseconds: 150));
     await tester.tap(find.text('End rest early'));
@@ -321,8 +323,9 @@ void main() {
     await tester.tap(find.text('Sit up for 2 minutes'));
     await tester.pump();
     await tester.pump();
-    // The rest runs out on its own; "Start the step" appears under the finger.
-    await tester.pump(const Duration(minutes: 10));
+    // The rest (9 min for this step) runs out on its own; "Start the step"
+    // appears under the finger.
+    await tester.pump(const Duration(minutes: 9));
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest complete.'), findsOneWidget);
@@ -350,7 +353,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(seconds: 10));
-    expect(find.text('9:50'), findsOneWidget);
+    expect(find.text('8:50'), findsOneWidget);
 
     // Simulate process death: new widget tree, same storage.
     await tester.pumpWidget(const SizedBox());
@@ -360,7 +363,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest'), findsOneWidget);
-    expect(find.text('9:45'), findsOneWidget);
+    expect(find.text('8:45'), findsOneWidget);
 
     await tester.tap(find.text('Stop'));
     await tester.pumpAndSettle();
@@ -387,12 +390,15 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Sit next to the pile for 5 minutes'),
       100,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.descendant(of: find.byType(TaskDetailScreen), matching: find.byType(Scrollable)),
     );
     await tester.pump();
     await tester.tap(find.text('Sit next to the pile for 5 minutes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rest first, then a 5 min approach here'));
+    // Step 5 of the laundry ladder: five rest units (50 min) before 5 minutes.
+    expect(find.text('Rest 50 min, then a 5 min approach here'), findsOneWidget);
+    expect(find.textContaining('The step can start sooner'), findsOneWidget, reason: 'a long rest is no wall');
+    await tester.tap(find.text('Rest 50 min, then a 5 min approach here'));
     // Let the sheet and the detail route finish leaving (about 300 ms),
     // one frame per 100 ms so the finished routes are actually removed, and
     // get past the controller's settle window before tapping Stop.
@@ -400,7 +406,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('Rest'), findsOneWidget, reason: 'the rest to get ready comes first');
-    expect(find.textContaining(RegExp(r'^(10:00|9:59)$')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^(50:00|49:59)$')), findsOneWidget, reason: "the step's own rest");
     expect(find.text('Sit next to the pile for 5 minutes'), findsOneWidget);
     await tester.tap(find.text('Stop'));
     await tester.pumpAndSettle();

@@ -40,9 +40,14 @@ class StepScaling {
           : s.copyWith(suggestedDuration: scale(s.suggestedDuration!, factor)),
   ];
 
-  /// "×0.5", "×1", "×1.5".
+  /// "×0.5", "×1", "×1.5", "×1.88": two decimals at most, with trailing
+  /// zeros dropped and the dot with them, so a factor a hair off a whole
+  /// number (×1.003, as a continuous slider produces) reads "×1", never
+  /// "×1.".
   static String label(double factor) {
-    final text = factor == factor.roundToDouble() ? '${factor.toInt()}' : '$factor';
+    final text = factor == factor.roundToDouble()
+        ? '${factor.toInt()}'
+        : factor.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
     return '×$text';
   }
 }

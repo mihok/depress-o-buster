@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../services/providers.dart';
 
 class RungChoice {
@@ -66,6 +67,8 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
           );
         }
         final ladder = ref.watch(ladderProvider(task.id)).value ?? const <LadderStep>[];
+        final settings = ref.watch(settingsProvider);
+        final unit = LadderRests.unitFor(task, settings.rest);
         return ListView(
           controller: scroll,
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
@@ -82,7 +85,13 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Any step is a fine place to start.', style: theme.textTheme.bodySmall),
+              child: Text(
+                settings.restFirst
+                    ? 'Any step is a fine place to start. The rest before it is time to get ready; '
+                          'the step can start sooner.'
+                    : 'Any step is a fine place to start.',
+                style: theme.textTheme.bodySmall,
+              ),
             ),
             const SizedBox(height: 8),
             if (ladder.isEmpty)
@@ -98,9 +107,10 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
                   child: Text('${step.position + 1}', style: theme.textTheme.labelMedium),
                 ),
                 title: Text(step.text),
-                subtitle: step.suggestedDuration == null
-                    ? null
-                    : Text(formatWords(step.suggestedDuration!)),
+                subtitle: Text(
+                  'Rest ${formatWords(LadderRests.restFor(unit: unit, position: step.position))}'
+                  ' · ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
+                ),
                 onTap: () => Navigator.pop(context, RungChoice(task, step)),
               ),
           ],

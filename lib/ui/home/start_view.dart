@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../services/providers.dart';
 import '../tasks/rung_picker_sheet.dart';
@@ -50,11 +51,17 @@ class _StartViewState extends ConsumerState<StartView> {
         break;
       }
     }
+    // The same step shows the same rest everywhere: the one-tap start uses
+    // the ladder's rest for "Sit up for 2 minutes" (the floor task is seeded
+    // with a gentle rest unit), and only falls back to the preset's rest
+    // when the task or step is gone.
     Preset? sitUpPreset;
     for (final p in presets) {
       if (p.name == 'Just sit up') sitUpPreset = p;
     }
-    final sitUpRest = sitUpPreset?.rest ?? _sitUpRestFallback;
+    final sitUpRest = sitUpTask != null && sitUpRung != null
+        ? LadderRests.restFor(unit: LadderRests.unitFor(sitUpTask, settings.rest), position: sitUpRung.position)
+        : sitUpPreset?.rest ?? _sitUpRestFallback;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Depress-o-buster')),
@@ -86,12 +93,23 @@ class _StartViewState extends ConsumerState<StartView> {
                 ? 'after ${formatWords(sitUpRest)} of rest to get ready'
                 : 'then rest for ${formatWords(sitUpRest)}',
             onPressed: () => _start(
-              config: settings.timerConfig.copyWith(
-                approach: _sitUpApproach,
-                rest: sitUpRest,
-                clearLongRest: true,
-                cyclesBeforeLongRest: 0,
-              ),
+              // The step's own round (its ladder rest, no long rest) when it
+              // exists, but always exactly two minutes: the button says so,
+              // and the floor is a promise whatever the step's length has
+              // been stretched to on the task screen.
+              config: sitUpTask != null && sitUpRung != null
+                  ? LadderRests.roundFor(
+                      base: settings.timerConfig,
+                      task: sitUpTask,
+                      step: sitUpRung,
+                      fallbackUnit: settings.rest,
+                    ).copyWith(approach: _sitUpApproach)
+                  : settings.timerConfig.copyWith(
+                      approach: _sitUpApproach,
+                      rest: sitUpRest,
+                      clearLongRest: true,
+                      cyclesBeforeLongRest: 0,
+                    ),
               target: ApproachTarget(
                 taskId: sitUpTask?.id,
                 taskTitle: 'Just sit up',
@@ -124,7 +142,8 @@ class _StartViewState extends ConsumerState<StartView> {
           Text(
             settings.restFirst
                 ? 'An approach is being near the thing, not doing the thing. The rest comes first: '
-                      'time to get ready, then the chime says it is time for the step.'
+                      'time to get ready, then the chime says it is time for the step, or start it sooner '
+                      'whenever you are ready.'
                 : 'An approach is being near the thing, not doing the thing. Rest is part of the method.',
             style: theme.textTheme.bodySmall,
           ),
@@ -138,8 +157,11 @@ class _StartViewState extends ConsumerState<StartView> {
     if (choice == null || !mounted) return;
     final settings = ref.read(settingsProvider);
     await _start(
-      config: settings.timerConfig.copyWith(
-        approach: choice.step.suggestedDuration ?? settings.approach,
+      config: LadderRests.roundFor(
+        base: settings.timerConfig,
+        task: choice.task,
+        step: choice.step,
+        fallbackUnit: settings.rest,
       ),
       target: ApproachTarget(
         taskId: choice.task.id,

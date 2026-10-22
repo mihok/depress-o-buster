@@ -74,6 +74,14 @@ void main() {
       expect(StepScaling.label(1), '×1');
       expect(StepScaling.label(1.5), '×1.5');
       expect(StepScaling.label(3), '×3');
+      expect(StepScaling.label(1.88), '×1.88');
+    });
+
+    test('a factor a hair off a whole number reads as that number, never "×1."', () {
+      expect(StepScaling.label(1.003), '×1');
+      expect(StepScaling.label(0.998), '×1');
+      expect(StepScaling.label(2.001), '×2');
+      expect(StepScaling.label(1.104), '×1.1');
     });
   });
 }

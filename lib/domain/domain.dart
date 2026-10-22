@@ -1,5 +1,6 @@
 export 'entities/entities.dart';
 export 'ladder/ladder_logic.dart';
+export 'ladder/ladder_rests.dart';
 export 'ladder/starter_ladders.dart';
 export 'ladder/step_scaling.dart';
 export 'timer/timer_engine.dart';
