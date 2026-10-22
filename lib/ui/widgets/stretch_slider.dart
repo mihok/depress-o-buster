@@ -56,8 +56,9 @@ class StretchSlider extends StatefulWidget {
 }
 
 class _StretchSliderState extends State<StretchSlider> {
-  static const double _floor = 0.01;
-  static const double _ceiling = 100;
+  // Per release. The control is relative, so a bigger change is another drag.
+  static const double _floor = 0.1;
+  static const double _ceiling = 10;
   static const double _edge = 0.06;
   static const double _growth = 1.15;
   static const Duration _tick = Duration(milliseconds: 120);
@@ -75,6 +76,10 @@ class _StretchSliderState extends State<StretchSlider> {
   double? _last;
   Timer? _timer;
 
+  /// Pointer moves since the thumb was grabbed. Stretching needs a real
+  /// drag, never the touch that grabbed the thumb.
+  int _moves = 0;
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -90,6 +95,7 @@ class _StretchSliderState extends State<StretchSlider> {
   }
 
   void _handleStart(double _) {
+    _moves = 0;
     _lo = math.min(widget.initialMin, widget.factor);
     _hi = math.max(widget.initialMax, widget.factor);
   }
@@ -97,7 +103,8 @@ class _StretchSliderState extends State<StretchSlider> {
   void _handleChanged(double logFactor) {
     final span = math.log(_hi) - math.log(_lo);
     _t = ((logFactor - math.log(_lo)) / span).clamp(0.0, 1.0).toDouble();
-    final side = _t >= 1 - _edge ? 1 : (_t <= _edge ? -1 : 0);
+    _moves++;
+    final side = _moves > 1 ? (_t >= 1 - _edge ? 1 : (_t <= _edge ? -1 : 0)) : 0;
     if (side != _side) {
       _timer?.cancel();
       _side = side;
@@ -152,6 +159,9 @@ class _StretchSliderState extends State<StretchSlider> {
                     min: lo,
                     max: hi,
                     activeColor: theme.colorScheme.primary,
+                    // A touch on the track must not jump the value (and then
+                    // save it on release): only the thumb moves the factor.
+                    allowedInteraction: SliderInteraction.slideThumb,
                     semanticFormatterCallback: (v) =>
                         '×${math.exp(v).toStringAsFixed(2)}',
                     onChangeStart: _handleStart,

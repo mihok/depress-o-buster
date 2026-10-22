@@ -86,6 +86,9 @@ class SeedData {
           title,
           ladder: StarterLadders.byTitle[title] ?? StarterLadders.generic(title),
           sortOrder: i,
+          // The floor task rests gently: 3, 3, 6, 9, 15, 24 min before its
+          // steps, so "Sit up for 2 minutes" (step 4) waits 9 minutes.
+          restUnit: title == 'Just sit up' ? const Duration(minutes: 3) : null,
         );
       }
     }

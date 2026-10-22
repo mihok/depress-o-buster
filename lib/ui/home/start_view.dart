@@ -51,11 +51,17 @@ class _StartViewState extends ConsumerState<StartView> {
         break;
       }
     }
+    // The same step shows the same rest everywhere: the one-tap start uses
+    // the ladder's rest for "Sit up for 2 minutes" (the floor task is seeded
+    // with a gentle rest unit), and only falls back to the preset's rest
+    // when the task or step is gone.
     Preset? sitUpPreset;
     for (final p in presets) {
       if (p.name == 'Just sit up') sitUpPreset = p;
     }
-    final sitUpRest = sitUpPreset?.rest ?? _sitUpRestFallback;
+    final sitUpRest = sitUpTask != null && sitUpRung != null
+        ? LadderRests.restFor(unit: LadderRests.unitFor(sitUpTask, settings.rest), position: sitUpRung.position)
+        : sitUpPreset?.rest ?? _sitUpRestFallback;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Depress-o-buster')),

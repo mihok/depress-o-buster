@@ -117,10 +117,10 @@ void main() {
     final h = await _harness();
     await h.pump(tester);
     // Every step shows its rest (1, 1, 2, 3, 5 units of the 10 min Settings rest) and its time.
-    expect(find.text('Rest 10 min · 1 min'), findsOneWidget);
-    expect(find.text('Rest 10 min · 2 min'), findsOneWidget);
-    expect(find.text('Rest 20 min · 30 sec'), findsOneWidget);
-    expect(find.text('Rest 30 min · 5 min'), findsOneWidget);
+    expect(find.text('Rest 10 min · Step 1 min'), findsOneWidget);
+    expect(find.text('Rest 10 min · Step 2 min'), findsOneWidget);
+    expect(find.text('Rest 20 min · Step 30 sec'), findsOneWidget);
+    expect(find.text('Rest 30 min · Step 5 min'), findsOneWidget);
     // The sliders fold out of the way until asked for.
     expect(find.byType(Slider), findsNothing);
     expect(find.textContaining('Rest unit 10 min · rests 10, 10, 20, 30, 50 min'), findsOneWidget);
@@ -143,8 +143,8 @@ void main() {
 
     expect(find.text('×1'), findsNothing, reason: 'the label follows the drag');
     expect(find.textContaining(RegExp(r'^×\d(\.\d\d?)?$')), findsOneWidget, reason: 'a readable factor');
-    expect(find.text('Rest 10 min · 1 min'), findsNothing, reason: '1 min shown longer while held');
-    expect(find.text('Rest 10 min · 4 min'), findsOneWidget, reason: '2 min shown roughly doubled');
+    expect(find.text('Rest 10 min · Step 1 min'), findsNothing, reason: '1 min shown longer while held');
+    expect(find.text('Rest 10 min · Step 4 min'), findsOneWidget, reason: '2 min shown roughly doubled');
     final held = await h.ladder(tester);
     expect(held[1].suggestedDuration, const Duration(minutes: 2), reason: 'nothing is saved while held');
 
@@ -174,7 +174,7 @@ void main() {
     await tester.pump();
     await gesture.moveBy(const Offset(-120, 0));
     await tester.pump();
-    expect(find.text('Rest 10 min · 1 min'), findsNothing, reason: 'rests shrink live while held');
+    expect(find.text('Rest 10 min · Step 1 min'), findsNothing, reason: 'rests shrink live while held');
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -184,7 +184,7 @@ void main() {
     expect(find.textContaining('Rest unit is now'), findsOneWidget);
     // The tiles and the summary follow the saved unit.
     final first = LadderRests.restFor(unit: task.restUnit!, position: 0);
-    expect(find.text('Rest ${formatWords(first)} · 1 min'), findsOneWidget);
+    expect(find.text('Rest ${formatWords(first)} · Step 1 min'), findsOneWidget);
     expect(find.textContaining('Rest unit ${formatWords(task.restUnit!)} · rests'), findsOneWidget);
 
     await h.tearDown(tester);

@@ -122,9 +122,10 @@ class _NewTaskDialogState extends State<_NewTaskDialog> {
           ),
           const SizedBox(height: 12),
           Text(
-            'It gets a ladder of short steps. Each step has a rest before it, growing with its '
-            'place in the ladder: ${LadderRests.describe(widget.restUnit)} You can change the rest '
-            'unit and every step afterwards.',
+            'It gets a ladder of short steps, from about a minute up to the whole thing. Each step '
+            'has its own rest, growing with its place in the ladder: '
+            '${LadderRests.describe(widget.restUnit)} Every step and the rest unit can be changed '
+            'on the task.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

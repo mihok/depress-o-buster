@@ -41,6 +41,7 @@ class TaskRepository {
     String? note,
     List<MicroStep> ladder = const [],
     int? sortOrder,
+    Duration? restUnit,
   }) async {
     final now = clock.now();
     final order = sortOrder ?? await _nextSortOrder();
@@ -50,6 +51,7 @@ class TaskRepository {
       note: note?.trim().isEmpty ?? true ? null : note!.trim(),
       createdAt: now,
       sortOrder: order,
+      restUnit: restUnit,
     );
     final steps = LadderLogic.fromMicroSteps(task.id, ladder, _newId);
     await _db.transaction(() async {

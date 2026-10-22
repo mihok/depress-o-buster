@@ -120,7 +120,13 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (m) async => m.createAll(),
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(sessions, sessions.rungId);
-      if (from < 3) await m.addColumn(tasks, tasks.restUnitSeconds);
+      if (from < 3) {
+        await m.addColumn(tasks, tasks.restUnitSeconds);
+        // Existing installs get the floor task's gentle rest unit too.
+        await customStatement(
+          "UPDATE tasks SET rest_unit_seconds = 180 WHERE title = 'Just sit up' AND rest_unit_seconds IS NULL",
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

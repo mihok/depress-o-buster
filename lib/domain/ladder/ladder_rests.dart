@@ -27,6 +27,14 @@ class LadderRests {
   /// A new unit from the slider, rounded the way step times are.
   static Duration scaleUnit(Duration unit, double factor) => StepScaling.scale(unit, factor);
 
+  /// The unit never goes below 30 seconds or above 4 hours (×13 of which is
+  /// still a long afternoon, not a lost day).
+  static const Duration minUnit = Duration(seconds: 30);
+  static const Duration maxUnit = Duration(hours: 4);
+
+  static Duration clampUnit(Duration unit) =>
+      unit < minUnit ? minUnit : (unit > maxUnit ? maxUnit : unit);
+
   /// "10, 10, 20, 30, 50 min, …" for a given unit, [count] steps long.
   static String describe(Duration unit, {int count = 5}) {
     String minutes(Duration d) =>

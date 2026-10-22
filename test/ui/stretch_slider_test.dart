@@ -61,7 +61,7 @@ void main() {
     final grown = host.factor;
     await tester.pump(const Duration(milliseconds: 500));
     expect(host.factor, greaterThan(grown));
-    expect(host.factor, lessThanOrEqualTo(100));
+    expect(host.factor, lessThanOrEqualTo(10));
     await right.up();
     await tester.pump();
 
@@ -75,7 +75,7 @@ void main() {
     final shrunk = host.factor;
     await tester.pump(const Duration(milliseconds: 500));
     expect(host.factor, lessThan(shrunk));
-    expect(host.factor, greaterThanOrEqualTo(0.01));
+    expect(host.factor, greaterThanOrEqualTo(0.1));
     await left.up();
     await tester.pump();
   });
