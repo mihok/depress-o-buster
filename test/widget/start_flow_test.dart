@@ -323,8 +323,9 @@ void main() {
     await tester.tap(find.text('Sit up for 2 minutes'));
     await tester.pump();
     await tester.pump();
-    // The rest runs out on its own; "Start the step" appears under the finger.
-    await tester.pump(const Duration(minutes: 10));
+    // The rest (9 min for this step) runs out on its own; "Start the step"
+    // appears under the finger.
+    await tester.pump(const Duration(minutes: 9));
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest complete.'), findsOneWidget);

@@ -114,6 +114,11 @@ void main() {
   });
 
   testWidgets('the step length slider previews live, saves on release and returns to ×1', (tester) async {
+    // Tall enough that the step tiles stay built below the unfolded sliders.
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final h = await _harness();
     await h.pump(tester);
     // Every step shows its rest (1, 1, 2, 3, 5 units of the 10 min Settings rest) and its time.
@@ -144,7 +149,9 @@ void main() {
     expect(find.text('×1'), findsNothing, reason: 'the label follows the drag');
     expect(find.textContaining(RegExp(r'^×\d(\.\d\d?)?$')), findsOneWidget, reason: 'a readable factor');
     expect(find.text('Rest 10 min · Step 1 min'), findsNothing, reason: '1 min shown longer while held');
-    expect(find.text('Rest 10 min · Step 4 min'), findsOneWidget, reason: '2 min shown roughly doubled');
+    expect(find.textContaining(RegExp(r'^Rest 10 min · Step [3-9] min( 30 sec)?$')), findsOneWidget, reason: '2 min shown longer, rounded to half a minute');
+    expect(find.text('Rest 20 min · Step 30 sec'), findsNothing, reason: 'the 30 sec step grows too');
+    expect(find.textContaining(RegExp(r'^Rest 20 min · Step ')), findsOneWidget, reason: 'its rest does not move: it belongs to the place');
     final held = await h.ladder(tester);
     expect(held[1].suggestedDuration, const Duration(minutes: 2), reason: 'nothing is saved while held');
 

@@ -80,6 +80,9 @@ class _StretchSliderState extends State<StretchSlider> {
   /// drag, never the touch that grabbed the thumb.
   int _moves = 0;
 
+  /// Where the thumb was grabbed, as a track fraction.
+  double _grabT = 0.5;
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -94,8 +97,10 @@ class _StretchSliderState extends State<StretchSlider> {
     widget.onChanged(_last!);
   }
 
-  void _handleStart(double _) {
+  void _handleStart(double logFactor) {
     _moves = 0;
+    final span = math.log(_hi) - math.log(_lo);
+    _grabT = span == 0 ? 0.5 : ((logFactor - math.log(_lo)) / span).clamp(0.0, 1.0).toDouble();
     _lo = math.min(widget.initialMin, widget.factor);
     _hi = math.max(widget.initialMax, widget.factor);
   }
@@ -104,7 +109,9 @@ class _StretchSliderState extends State<StretchSlider> {
     final span = math.log(_hi) - math.log(_lo);
     _t = ((logFactor - math.log(_lo)) / span).clamp(0.0, 1.0).toDouble();
     _moves++;
-    final side = _moves > 1 ? (_t >= 1 - _edge ? 1 : (_t <= _edge ? -1 : 0)) : 0;
+    // Only the thumb can be dragged, so any change is a real move; the
+    // guard keeps a grab that lands exactly on an end from stretching.
+    final side = _moves >= 1 && _t != _grabT ? (_t >= 1 - _edge ? 1 : (_t <= _edge ? -1 : 0)) : 0;
     if (side != _side) {
       _timer?.cancel();
       _side = side;
