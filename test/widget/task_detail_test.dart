@@ -554,6 +554,68 @@ void main() {
     await h.tearDown(tester);
   });
 
+  testWidgets('a task screen opened again joins the burst that is still up', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness();
+    await h.pump(tester, pushed: true);
+    final original = (await h.ladder(tester)).map((s) => s.suggestedDuration).toList();
+
+    Future<void> release() async {
+      await tester.tap(find.text('Adjust step length and rest unit'));
+      await tester.pumpAndSettle();
+      final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).first).center);
+      await tester.pump();
+      await _slide(tester, gesture, 120);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await release();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await release();
+    expect(find.text('Undo'), findsOneWidget, reason: 'one bar for the burst, not one per screen');
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect((await h.ladder(tester)).map((s) => s.suggestedDuration), original, reason: 'back to before both releases');
+    await tester.pump(const Duration(seconds: 7));
+    expect(find.text('Undo'), findsNothing, reason: 'no second bar waiting behind');
+
+    await h.tearDown(tester);
+  });
+
+  testWidgets('the end-of-range note names the rest unit when the bar is about step times', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final h = await _harness(settings: const AppSettings(rest: Duration(minutes: 30)));
+    await h.pump(tester);
+    await tester.tap(find.text('Adjust step length and rest unit'));
+    await tester.pumpAndSettle();
+    final step = await tester.startGesture(tester.getRect(find.byType(Slider).first).center);
+    await tester.pump();
+    await _slide(tester, step, 120);
+    await step.up();
+    await tester.pumpAndSettle();
+    expect(find.text('4 step times changed'), findsOneWidget);
+
+    final rest = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
+    await tester.pump();
+    await _slide(tester, rest, 120);
+    await rest.up();
+    await tester.pumpAndSettle();
+    expect(find.text('4 step times changed (the rest unit stays at 30 min, the longest it goes)'), findsOneWidget);
+    expect(find.text('Undo'), findsOneWidget);
+
+    await h.tearDown(tester);
+  });
+
   testWidgets('a burst bar dismissed behind one "Step removed" never takes the next one with it', (tester) async {
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1.0;

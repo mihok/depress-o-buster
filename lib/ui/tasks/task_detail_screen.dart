@@ -45,6 +45,17 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   /// not the last; the burst ends when its bar closes.
   _BurstBar? _burst;
 
+  /// Open bursts by task id. A bar outlives its screen (it is the app's
+  /// messenger's), so a screen opened again for the same task joins the
+  /// burst that is still up rather than stacking a second bar whose Undo
+  /// would put the first burst's change back.
+  static final Map<String, _BurstBar> _openBursts = {};
+
+  _BurstBar? _openBurst(Task task) {
+    final bar = _burst ?? _openBursts[task.id];
+    return bar != null && bar.open ? bar : null;
+  }
+
   /// Steps swiped away and hidden at once, so a dismissed tile leaves the
   /// tree in the same frame whatever the database does. An undo unhides.
   final Set<String> _removedIds = {};
@@ -339,7 +350,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       if (!mounted) return;
       setState(() => _restFactor = 1);
       final atEnd = (factor > 1 && unit == LadderRests.maxUnit) || (factor < 1 && unit == LadderRests.minUnit);
-      if (atEnd) _sayAtEnd(unit);
+      if (atEnd) _sayAtEnd(task, unit);
       return;
     }
     await _changeRestUnit(task, next, 'Rest unit is now ${formatWords(next)}');
@@ -369,8 +380,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   /// this change's slider had before, the first time it joins; the bar then
   /// shows [text], or names both when both sliders have been used.
   void _joinBurst(Task task, void Function(_BurstBar bar) remember, String text) {
-    final open = _burst;
-    if (open != null && open.open) {
+    final open = _openBurst(task);
+    if (open != null) {
+      _burst = open;
       remember(open);
       open.touch(open.stepsBefore != null && open.restTouched ? 'Step times and rest unit changed' : text);
       return;
@@ -385,10 +397,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       onUndo: () => _undoBurst(repo, task, bar),
       onClosed: () {
         if (identical(_burst, bar)) _burst = null;
+        if (identical(_openBursts[task.id], bar)) _openBursts.remove(task.id);
       },
     );
     remember(bar);
     _burst = bar;
+    _openBursts[task.id] = bar;
   }
 
   /// Put back whatever the burst changed: the step times, the rest unit, or
@@ -405,13 +419,15 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   /// The rest slider was pushed past an end of the unit's range: nothing
   /// changed, and the person is told why. An open burst bar keeps its own
-  /// words (they say what its Undo does) and gets the note after them;
-  /// otherwise a quiet bar of its own says it.
-  void _sayAtEnd(Duration unit) {
+  /// words (they say what its Undo does) and gets the note after them,
+  /// naming the rest unit unless the words already do; otherwise a quiet
+  /// bar of its own says it.
+  void _sayAtEnd(Task task, Duration unit) {
     final end = unit == LadderRests.maxUnit ? 'the longest it goes' : 'the shortest it goes';
-    final open = _burst;
-    if (open != null && open.open) {
-      open.touch(open.words, note: end);
+    final open = _openBurst(task);
+    if (open != null) {
+      final aboutRest = open.words.startsWith('Rest unit is now');
+      open.touch(open.words, note: aboutRest ? end : 'the rest unit stays at ${formatWords(unit)}, $end');
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -430,7 +446,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final repo = ref.read(taskRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _removedIds.add(step.id));
-    _burst?.dismiss();
+    _openBurst(task)?.dismiss();
     await repo.deleteStep(task.id, step.id);
     messenger.showSnackBar(
       SnackBar(
