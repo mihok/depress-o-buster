@@ -1,5 +1,6 @@
 import 'package:depress_o_buster/ui/widgets/stretch_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Stands in for the task screen: it owns the factor, follows every
@@ -119,6 +120,24 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     expect(host.factor, 1);
     expect(host.ends, hasLength(1));
+  });
+
+  testWidgets('a screen-reader or keyboard step is one whole change, with nothing left running', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final host = _Host();
+    await tester.pumpWidget(host.build());
+    final node = tester.getSemantics(find.byType(Slider));
+    tester.binding.performSemanticsAction(
+      SemanticsActionEvent(type: SemanticsAction.increase, viewId: tester.view.viewId, nodeId: node.id),
+    );
+    await tester.pump();
+    expect(host.ends, hasLength(1), reason: 'reported at once: no release will ever come');
+    expect(host.ends.single, greaterThan(1));
+    expect(host.factor, 1, reason: 'the host returned the relative control to ×1');
+    // No timer is armed: the binding would fail the test if one were pending.
+    await tester.pump(const Duration(seconds: 2));
+    expect(host.ends, hasLength(1));
+    semantics.dispose();
   });
 
   testWidgets('stands at least 56 px tall and carries its label', (tester) async {

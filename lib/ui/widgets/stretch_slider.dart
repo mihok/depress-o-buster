@@ -135,6 +135,14 @@ class _StretchSliderState extends State<StretchSlider> {
   void _handleChanged(double logFactor) {
     final span = math.log(_hi) - math.log(_lo);
     _t = ((logFactor - math.log(_lo)) / span).clamp(0.0, 1.0).toDouble();
+    if (!_held) {
+      // A keyboard or screen-reader step arrives with no drag around it:
+      // nothing holds and nothing will release, so it is one whole change,
+      // never a stretch.
+      _emit(_factorAt(_t));
+      _handleEnd(logFactor);
+      return;
+    }
     _moves++;
     // Only the thumb can be dragged, so any change is a real move; the
     // guard keeps a grab that lands exactly on an end from stretching.
