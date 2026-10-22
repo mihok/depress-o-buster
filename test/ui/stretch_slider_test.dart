@@ -130,4 +130,75 @@ void main() {
     expect(find.bySemanticsLabel('Step length'), findsOneWidget);
     semantics.dispose();
   });
+
+  testWidgets('pulling back from past the end stops stretching, pushing out again resumes it', (tester) async {
+    final host = _Host();
+    await tester.pumpWidget(host.build());
+    final rect = tester.getRect(slider);
+    final past = Offset(rect.right + 60, rect.center.dy);
+
+    // Past the end the slider pins its value at the maximum and reports
+    // nothing new however the finger moves, so the finger itself decides.
+    final gesture = await tester.startGesture(rect.center);
+    await gesture.moveTo(past);
+    await tester.pump(const Duration(milliseconds: 360));
+    expect(host.factor, greaterThan(4.0));
+    final stopped = host.factor;
+
+    await gesture.moveBy(const Offset(-40, 0));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(host.factor, stopped, reason: 'moving back towards the middle stops the stretching');
+
+    await gesture.moveTo(past);
+    await tester.pump(const Duration(milliseconds: 360));
+    expect(host.factor, greaterThan(stopped), reason: 'pushing outward again resumes it');
+    await gesture.up();
+    await tester.pump();
+    expect(host.ends, hasLength(1));
+  });
+
+  testWidgets('a tremor of a few pixels does not stop the stretching', (tester) async {
+    final host = _Host();
+    await tester.pumpWidget(host.build());
+    final rect = tester.getRect(slider);
+
+    final gesture = await tester.startGesture(rect.center);
+    await gesture.moveTo(Offset(rect.right, rect.center.dy));
+    await tester.pump(const Duration(milliseconds: 240));
+    final grown = host.factor;
+    expect(grown, greaterThan(4.0));
+
+    await gesture.moveBy(const Offset(-5, 0));
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(host.factor, greaterThan(grown), reason: '5 px back is tremor, not a change of mind');
+    await gesture.up();
+    await tester.pump();
+  });
+
+  testWidgets('the thumb is grabbed within 28 px of its centre, not beyond', (tester) async {
+    final host = _Host();
+    await tester.pumpWidget(host.build());
+    final centre = tester.getRect(slider).center;
+
+    // Only a touch inside the overlay circle grabs the thumb. 40 px out is
+    // beyond the 56 px circle, so the drag goes nowhere.
+    final outside = await tester.startGesture(centre + const Offset(40, 0));
+    await outside.moveBy(const Offset(100, 0));
+    await tester.pump();
+    expect(host.factor, 1);
+    await outside.up();
+    await tester.pump();
+    expect(host.ends, isEmpty);
+
+    // 26 px out is inside it, though outside the 48 px circle a Slider gets
+    // by default.
+    final inside = await tester.startGesture(centre + const Offset(26, 0));
+    await inside.moveBy(const Offset(100, 0));
+    await tester.pump();
+    expect(host.factor, greaterThan(1));
+    await inside.up();
+    await tester.pump();
+    expect(host.ends, hasLength(1));
+    expect(host.ends.single, greaterThan(1));
+  });
 }
