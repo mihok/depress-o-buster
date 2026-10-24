@@ -248,3 +248,17 @@ going while it is held at either end (up to ×10 per release), so the range neve
 A burst of releases shares one Undo bar that goes back to before the first of them; that bar never pushes a
 "Step removed" bar off the screen, because a removed step matters more than a stretched one. A task with its own
 unit can go back to following Settings from the same fold.
+
+## 32. After a step, the next one is one tap away
+
+When a round that was about a step of a ladder is over, the timer screen offers the step after it first: a
+"Next step" button with the step's text under it, then "Another round" (the same step again) and "Done for now".
+The next step starts as its own round, the one the task screen would start (its own length, the rest its place
+in the ladder earns, no long rest), and as a new run, so the session log keeps each step apart. The ladder is
+read live when the round ends, so a step added or moved during the round is honoured; when the step's id is gone,
+its old position stands in for it. On the last step, for a round that was not a ladder step, and while a rest is
+still to come (approach first, rest started by hand), the controls stay as they were.
+
+Climbing is offered, never pushed: the button says what the next step is and nothing about pace, and repeating the
+current step keeps its place next to it rather than moving to a menu. A person who has done "stand in the
+doorway" three times today has done three steps.
