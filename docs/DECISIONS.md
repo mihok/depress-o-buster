@@ -248,3 +248,22 @@ going while it is held at either end (up to ×10 per release), so the range neve
 A burst of releases shares one Undo bar that goes back to before the first of them; that bar never pushes a
 "Step removed" bar off the screen, because a removed step matters more than a stretched one. A task with its own
 unit can go back to following Settings from the same fold.
+
+## 31. The rest is drawn, not only written
+
+A line of text ("Rest 20 min · Step 30 sec") says how long the rest is but not how it feels next to the step, and
+on a low day the feel is what the person is weighing. Each step's card on the task screen now carries its rest as
+a band of the card itself (`RestBand`): above the tile when the rest comes first, below it in the classic order,
+clipped to the card's own corners so it reads as the card reaching out for the rest rather than a strip laid over
+it. The band's height follows the rest on a log scale, 16 + 14 · log2(1 + minutes / 5), kept between 18 and 104
+points: 10 minutes is about 38, 20 about 48, 50 about 64 and 2 hr 10 min about 83, so every place up the climb is
+visibly taller than the last, yet the six-and-a-half-hour cap is still a card and a half rather than a wall that
+pushes the ladder off the screen. The words stay on the band, so the number is exact as well as felt, and a screen
+reader hears "Rest 20 min before this step"; the tile's subtitle is left to the step ("Step 1 min").
+
+Inside the band a small painter lays one pebble per rest unit, the step's multiplier (1, 1, 2, 3, 5, 8, 13), in
+the rest colour on a faint tint of it, spaced along a gentle wave and wrapped to another row only when the band
+is too narrow for one, never past its edge. A pebble is the app's one small step; here it counts how many of the
+step's units the rest is, so the Fibonacci climb can be seen without reading it. The painter is pure and repaints
+only when the count or the colour changes, and the band is built from the same previewed unit the tile already
+received, so it grows and shrinks live while the rest slider is held and settles with the save.
