@@ -12,6 +12,7 @@ import '../../domain/ladder/step_scaling.dart';
 import '../../services/providers.dart';
 import '../root_shell.dart';
 import '../widgets/duration_picker_tile.dart';
+import '../widgets/rest_band.dart';
 import '../widgets/stretch_slider.dart';
 import 'breakdown_sheet.dart';
 
@@ -246,6 +247,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     onReorderItem: (oldIndex, newIndex) => repo.reorderSteps(t.id, oldIndex, newIndex),
                     itemBuilder: (context, index) {
                       final step = shown[index];
+                      // The rest is drawn as part of the step's card, before
+                      // or after the step as the round runs, tall in
+                      // proportion to how long it is (see RestBand).
+                      final band = RestBand(
+                        rest: LadderRests.restFor(unit: shownUnit, position: index),
+                        units: LadderRests.multiplierFor(index),
+                        before: settings.restFirst,
+                      );
                       return Dismissible(
                         key: ValueKey(step.id),
                         direction: DismissDirection.endToStart,
@@ -254,26 +263,37 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Card(
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                                child: Text('${index + 1}', style: theme.textTheme.labelMedium),
-                              ),
-                              title: Text(step.text),
-                              subtitle: Text(
-                                'Rest ${formatWords(LadderRests.restFor(unit: shownUnit, position: index))}'
-                                ' · Step ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
-                              ),
-                              trailing: ReorderableDragStartListener(
-                                index: index,
-                                child: const SizedBox(
-                                  width: 56,
-                                  height: 56,
-                                  child: Icon(Icons.drag_handle),
+                            // Clipped to its own corners, so the band reads
+                            // as the card's extension rather than a strip
+                            // laid over it.
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (settings.restFirst) band,
+                                ListTile(
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                    child: Text('${index + 1}', style: theme.textTheme.labelMedium),
+                                  ),
+                                  title: Text(step.text),
+                                  subtitle: Text(
+                                    'Step ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
+                                  ),
+                                  trailing: ReorderableDragStartListener(
+                                    index: index,
+                                    child: const SizedBox(
+                                      width: 56,
+                                      height: 56,
+                                      child: Icon(Icons.drag_handle),
+                                    ),
+                                  ),
+                                  onTap: () => _rungActions(context, ref, t, ladder, step),
                                 ),
-                              ),
-                              onTap: () => _rungActions(context, ref, t, ladder, step),
+                                if (!settings.restFirst) band,
+                              ],
                             ),
                           ),
                         ),

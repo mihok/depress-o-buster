@@ -72,7 +72,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(TaskDetailScreen), findsOneWidget);
     expect(find.text('Think about laundry for 1 minute'), findsOneWidget);
-    expect(find.text('Rest 10 min · Step 1 min'), findsNWidgets(2), reason: 'the first two steps rest one unit');
+    expect(find.text('Rest 10 min'), findsNWidgets(2), reason: 'the first two steps rest one unit');
+    expect(find.text('Step 1 min'), findsNWidgets(2));
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
