@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Calm, low-stimulation palette. Dark first.
 class AppColors {
@@ -25,6 +26,23 @@ class AppTheme {
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData light() => _build(Brightness.light);
+
+  /// Clear system bars whose icons follow the theme. The app draws behind
+  /// both bars (main.dart turns edge-to-edge on), so neither may bring a
+  /// colour or a contrast scrim of its own.
+  static SystemUiOverlayStyle systemOverlayStyle(Brightness brightness) {
+    final icons = brightness == Brightness.dark ? Brightness.light : Brightness.dark;
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      // iOS asks for the brightness of the bar's background, not its icons.
+      statusBarBrightness: brightness,
+      statusBarIconBrightness: icons,
+      systemStatusBarContrastEnforced: false,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: icons,
+      systemNavigationBarContrastEnforced: false,
+    );
+  }
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
@@ -66,6 +84,10 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        // Left to itself an AppBar judges the status icons by its transparent
+        // background, which reads as dark, and the light theme gets light
+        // icons on a light screen.
+        systemOverlayStyle: systemOverlayStyle(brightness),
       ),
       cardTheme: CardThemeData(
         color: isDark ? AppColors.darkSurface : AppColors.lightSurface,

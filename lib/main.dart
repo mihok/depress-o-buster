@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
@@ -14,6 +15,10 @@ import 'services/settings/settings_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Draw behind the system bars on every Android version, not only where
+  // Android 15 insists on it, so the screens have one set of insets to
+  // clear rather than two. The bars themselves are styled in app.dart.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   final db = AppDatabase.open();
   final settingsService = SettingsService();

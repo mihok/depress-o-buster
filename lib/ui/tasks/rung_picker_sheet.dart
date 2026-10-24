@@ -41,11 +41,14 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
       initialChildSize: 0.7,
       maxChildSize: 0.95,
       builder: (context, scroll) {
+        // The list runs under the navigation bar (useSafeArea clears the top
+        // only), so its last row stops above it.
+        final bottom = 24 + MediaQuery.paddingOf(context).bottom;
         if (task == null) {
           final tasks = ref.watch(tasksProvider).value ?? const <Task>[];
           return ListView(
             controller: scroll,
-            padding: const EdgeInsets.fromLTRB(8, 16, 8, 24),
+            padding: EdgeInsets.fromLTRB(8, 16, 8, bottom),
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -71,7 +74,7 @@ class _RungPickerSheetState extends ConsumerState<_RungPickerSheet> {
         final unit = LadderRests.unitFor(task, settings.rest);
         return ListView(
           controller: scroll,
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
+          padding: EdgeInsets.fromLTRB(8, 8, 8, bottom),
           children: [
             Row(
               children: [
