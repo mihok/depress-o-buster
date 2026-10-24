@@ -242,17 +242,20 @@ class _Controls extends ConsumerWidget {
   /// The step after the one this round was about, when the round was a step
   /// of a ladder that has one. Looked up live, so a ladder edited during the
   /// round is honoured; a task that is gone or archived offers nothing.
-  ({Task task, LadderStep step})? _nextStep(WidgetRef ref) {
+  /// [known] is false while the task or ladder has not loaded yet (a round
+  /// restored after the app was away), so the controls can wait rather than
+  /// change under the finger a frame later.
+  ({bool known, ({Task task, LadderStep step})? next}) _nextStep(WidgetRef ref) {
     final target = state.target;
     final taskId = target?.taskId;
-    if (target == null || taskId == null || target.rungId == null) return null;
-    final tasks = ref.watch(tasksProvider).value ?? const <Task>[];
-    final matching = tasks.where((t) => t.id == taskId);
-    if (matching.isEmpty) return null;
+    if (target == null || taskId == null || target.rungId == null) return (known: true, next: null);
+    final tasks = ref.watch(tasksProvider).value;
     final ladder = ref.watch(ladderProvider(taskId)).value;
-    if (ladder == null) return null;
+    if (tasks == null || ladder == null) return (known: false, next: null);
+    final matching = tasks.where((t) => t.id == taskId);
+    if (matching.isEmpty) return (known: true, next: null);
     final next = LadderLogic.stepAfter(ladder, id: target.rungId, position: target.rungPosition);
-    return next == null ? null : (task: matching.first, step: next);
+    return (known: true, next: next == null ? null : (task: matching.first, step: next));
   }
 
   /// The next step's own round, as the task screen would start it, as a new
@@ -451,7 +454,8 @@ class _Controls extends ConsumerWidget {
       case TimerStatus.finished:
         // The round is over. A step of a ladder puts the step after it one
         // tap away; repeating this one and stopping stay as near as before.
-        final next = _nextStep(ref);
+        final (:known, :next) = _nextStep(ref);
+        if (!known) return const SizedBox.shrink();
         if (next != null) {
           return Column(
             children: [

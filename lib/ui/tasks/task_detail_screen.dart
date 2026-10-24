@@ -267,7 +267,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                             // as the card's extension rather than a strip
                             // laid over it.
                             clipBehavior: Clip.antiAlias,
-                            child: Column(
+                            // The band is part of the card, so a tap on it
+                            // opens the step like a tap on the tile does.
+                            child: InkWell(
+                              onTap: () => _rungActions(context, ref, t, ladder, step),
+                              child: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -290,10 +294,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                       child: Icon(Icons.drag_handle),
                                     ),
                                   ),
-                                  onTap: () => _rungActions(context, ref, t, ladder, step),
                                 ),
                                 if (!settings.restFirst) band,
                               ],
+                              ),
                             ),
                           ),
                         ),

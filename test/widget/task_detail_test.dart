@@ -813,6 +813,21 @@ void main() {
     await h.tearDown(tester);
   });
 
+  testWidgets('a tap on the rest band opens the step like a tap on the tile', (tester) async {
+    final h = await _harness();
+    await h.pump(tester);
+    await tester.tap(find.byType(RestBand).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Break this step down smaller'), findsOneWidget, reason: 'the step sheet');
+    expect(find.widgetWithText(FilledButton, 'Rest 10 min, then a 1 min approach here'), findsOneWidget);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit step'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await h.tearDown(tester);
+  });
+
   testWidgets('the Remove button in the step menu also offers Undo', (tester) async {
     final h = await _harness();
     await h.pump(tester);

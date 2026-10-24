@@ -55,14 +55,19 @@ class RestBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final style = theme.textTheme.bodySmall!;
+    // Never shorter than its own words: at large text sizes one line of
+    // small text is taller than the shortest band.
+    final line = MediaQuery.textScalerOf(context).scale(style.fontSize ?? 12) * (style.height ?? 1.33);
     return Semantics(
       label: '$words ${before ? 'before' : 'after'} this step',
       excludeSemantics: true,
       child: SizedBox(
-        height: heightFor(rest),
+        height: math.max(heightFor(rest), line + 2),
         child: ColoredBox(
-          // Rest is the secondary colour everywhere in this app.
-          color: scheme.secondaryContainer.withValues(alpha: 0.35),
+          // Rest is the secondary colour everywhere in this app; a faint
+          // tint of it, so the band and its pebbles are one hue.
+          color: scheme.secondary.withValues(alpha: theme.brightness == Brightness.dark ? 0.14 : 0.10),
           child: Padding(
             // The same inset as the tile's content, so the words line up
             // with the step's number.
@@ -77,7 +82,7 @@ class RestBand extends StatelessWidget {
                     constraints: BoxConstraints(maxWidth: math.max(0, constraints.maxWidth - _gap)),
                     child: Text(
                       words,
-                      style: theme.textTheme.bodySmall,
+                      style: style,
                       maxLines: 1,
                       softWrap: false,
                       overflow: TextOverflow.fade,
@@ -102,9 +107,11 @@ class RestBand extends StatelessWidget {
 /// One pebble per rest unit, on a gentle wave. Pure and deterministic: the
 /// same count in the same space always draws the same pebbles.
 ///
-/// Pebbles are laid in rows of as many as fit the width; a row that would
-/// not fit the height is left out rather than drawn over the edge. Nothing is
-/// allocated per frame beyond the one [Paint].
+/// Pebbles are laid in rows of as many as fit the width, in as many rows as
+/// fit the height. When that is not enough for the count, the pebbles close
+/// up so that all of them fit, and when even that would overlap them none
+/// are drawn: the picture never shows a count the words contradict. Nothing
+/// is allocated per frame beyond the one [Paint].
 class RestBandPainter extends CustomPainter {
   const RestBandPainter({required this.units, required this.color});
 
@@ -119,21 +126,35 @@ class RestBandPainter extends CustomPainter {
   static const double _wave = 2 * math.pi / 6;
   static const double _maxAmplitude = 3;
 
+  /// How the pebbles are laid out in a space: pebbles per row, rows, and
+  /// the gap between pebble centres; or null when they cannot all be drawn.
+  static ({int perRow, int rows, double gap})? layoutFor(int units, Size size) {
+    if (units <= 0 || size.width < 2 * radius || size.height < 2 * radius) return null;
+    final amplitude = math.min(_maxAmplitude, size.height / 2 - radius - 1).clamp(0.0, _maxAmplitude);
+    final fit = math.max(1, ((size.height - 2 * radius - 2 * amplitude) / rowPitch).floor() + 1);
+    var perRow = ((size.width - 2 * radius) / spacing).floor() + 1;
+    final rows = math.min((units / perRow).ceil(), fit);
+    var gap = spacing;
+    if (perRow * rows < units) {
+      perRow = (units / rows).ceil();
+      gap = perRow == 1 ? spacing : (size.width - 2 * radius) / (perRow - 1);
+      if (gap < 2 * radius + 1) return null;
+    }
+    return (perRow: perRow, rows: rows, gap: gap);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    if (units <= 0 || size.width < 2 * radius || size.height < 2 * radius) return;
-    final perRow = ((size.width - 2 * radius) / spacing).floor() + 1;
+    final layout = layoutFor(units, size);
+    if (layout == null) return;
     final amplitude = math.min(_maxAmplitude, size.height / 2 - radius - 1).clamp(0.0, _maxAmplitude);
-    final wanted = (units / perRow).ceil();
-    final fit = ((size.height - 2 * radius - 2 * amplitude) / rowPitch).floor() + 1;
-    final rows = math.min(wanted, math.max(1, fit));
-    final top = size.height / 2 - (rows - 1) * rowPitch / 2;
+    final top = size.height / 2 - (layout.rows - 1) * rowPitch / 2;
     final paint = Paint()..color = color;
     var drawn = 0;
-    for (var row = 0; row < rows && drawn < units; row++) {
+    for (var row = 0; row < layout.rows && drawn < units; row++) {
       final cy = top + row * rowPitch;
-      for (var i = 0; i < perRow && drawn < units; i++, drawn++) {
-        final cx = radius + i * spacing;
+      for (var i = 0; i < layout.perRow && drawn < units; i++, drawn++) {
+        final cx = radius + i * layout.gap;
         canvas.drawCircle(Offset(cx, cy + amplitude * math.sin(drawn * _wave)), radius, paint);
       }
     }

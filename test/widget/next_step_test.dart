@@ -168,8 +168,9 @@ void main() {
     });
 
     test('falls back to the position when the id is gone', () {
-      expect(LadderLogic.stepAfter(ladder, id: 'gone', position: 0)?.id, 'b');
-      expect(LadderLogic.stepAfter(ladder, id: 'gone', position: 2), isNull);
+      // The done step was removed: the step now at its old place is next.
+      expect(LadderLogic.stepAfter(ladder, id: 'gone', position: 0)?.id, 'a');
+      expect(LadderLogic.stepAfter(ladder, id: 'gone', position: 2)?.id, 'c');
       expect(LadderLogic.stepAfter(ladder, id: 'gone', position: 9), isNull);
     });
   });

@@ -30,7 +30,11 @@ class AppTheme {
   /// Clear system bars whose icons follow the theme. The app draws behind
   /// both bars (main.dart turns edge-to-edge on), so neither may bring a
   /// colour or a contrast scrim of its own.
-  static SystemUiOverlayStyle systemOverlayStyle(Brightness brightness) {
+  /// [navigationBar] is the bar's own colour where it needs one: below
+  /// Android 10 the window stops above the bar, and a transparent colour
+  /// there shows the Android theme's background behind icons styled for
+  /// ours.
+  static SystemUiOverlayStyle systemOverlayStyle(Brightness brightness, {Color? navigationBar}) {
     final icons = brightness == Brightness.dark ? Brightness.light : Brightness.dark;
     return SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -38,7 +42,7 @@ class AppTheme {
       statusBarBrightness: brightness,
       statusBarIconBrightness: icons,
       systemStatusBarContrastEnforced: false,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: navigationBar ?? Colors.transparent,
       systemNavigationBarIconBrightness: icons,
       systemNavigationBarContrastEnforced: false,
     );

@@ -44,12 +44,13 @@ class LadderLogic {
   /// [position]. Null on the last step, and when neither is found.
   static LadderStep? stepAfter(List<LadderStep> steps, {String? id, int? position}) {
     final sorted = renumber(steps);
-    var index = id == null ? -1 : sorted.indexWhere((s) => s.id == id);
-    if (index < 0 && position != null && position >= 0 && position < sorted.length) {
-      index = position;
+    final index = id == null ? -1 : sorted.indexWhere((s) => s.id == id);
+    if (index < 0) {
+      // The step is gone (removed, or the ladder replaced): what now sits
+      // at its old place is the step after the one that was done.
+      return position != null && position >= 0 && position < sorted.length ? sorted[position] : null;
     }
-    if (index < 0 || index + 1 >= sorted.length) return null;
-    return sorted[index + 1];
+    return index + 1 < sorted.length ? sorted[index + 1] : null;
   }
 
   /// Turn breakdown drafts into saved rungs. [idFactory] supplies ids.

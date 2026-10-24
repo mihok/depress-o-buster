@@ -274,8 +274,8 @@ When a round that was about a step of a ladder is over, the timer screen offers 
 "Next step" button with the step's text under it, then "Another round" (the same step again) and "Done for now".
 The next step starts as its own round, the one the task screen would start (its own length, the rest its place
 in the ladder earns, no long rest), and as a new run, so the session log keeps each step apart. The ladder is
-read live when the round ends, so a step added or moved during the round is honoured; when the step's id is gone,
-its old position stands in for it. On the last step, for a round that was not a ladder step, and while a rest is
+read live when the round ends, so a step added or moved during the round is honoured; when the step itself is gone
+(removed, or the ladder replaced), the step now at its old place is the one offered. On the last step, for a round that was not a ladder step, and while a rest is
 still to come (approach first, rest started by hand), the controls stay as they were.
 
 Climbing is offered, never pushed: the button says what the next step is and nothing about pace, and repeating the
