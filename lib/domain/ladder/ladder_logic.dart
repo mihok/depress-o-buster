@@ -39,6 +39,20 @@ class LadderLogic {
     return [for (final s in steps) s.id == stepId ? s.copyWith(text: text) : s];
   }
 
+  /// The step after the one a round was about: the step with [id], or, when
+  /// that id is gone because the ladder was edited meanwhile, the one now at
+  /// [position]. Null on the last step, and when neither is found.
+  static LadderStep? stepAfter(List<LadderStep> steps, {String? id, int? position}) {
+    final sorted = renumber(steps);
+    final index = id == null ? -1 : sorted.indexWhere((s) => s.id == id);
+    if (index < 0) {
+      // The step is gone (removed, or the ladder replaced): what now sits
+      // at its old place is the step after the one that was done.
+      return position != null && position >= 0 && position < sorted.length ? sorted[position] : null;
+    }
+    return index + 1 < sorted.length ? sorted[index + 1] : null;
+  }
+
   /// Turn breakdown drafts into saved rungs. [idFactory] supplies ids.
   static List<LadderStep> fromMicroSteps(
     String taskId,

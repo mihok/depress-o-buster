@@ -12,6 +12,7 @@ import '../../domain/ladder/step_scaling.dart';
 import '../../services/providers.dart';
 import '../root_shell.dart';
 import '../widgets/duration_picker_tile.dart';
+import '../widgets/rest_band.dart';
 import '../widgets/stretch_slider.dart';
 import 'breakdown_sheet.dart';
 
@@ -246,6 +247,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     onReorderItem: (oldIndex, newIndex) => repo.reorderSteps(t.id, oldIndex, newIndex),
                     itemBuilder: (context, index) {
                       final step = shown[index];
+                      // The rest is drawn as part of the step's card, before
+                      // or after the step as the round runs, tall in
+                      // proportion to how long it is (see RestBand).
+                      final band = RestBand(
+                        rest: LadderRests.restFor(unit: shownUnit, position: index),
+                        units: LadderRests.multiplierFor(index),
+                        before: settings.restFirst,
+                      );
                       return Dismissible(
                         key: ValueKey(step.id),
                         direction: DismissDirection.endToStart,
@@ -254,26 +263,48 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Card(
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                                child: Text('${index + 1}', style: theme.textTheme.labelMedium),
-                              ),
-                              title: Text(step.text),
-                              subtitle: Text(
-                                'Rest ${formatWords(LadderRests.restFor(unit: shownUnit, position: index))}'
-                                ' · Step ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
-                              ),
-                              trailing: ReorderableDragStartListener(
-                                index: index,
-                                child: const SizedBox(
-                                  width: 56,
-                                  height: 56,
-                                  child: Icon(Icons.drag_handle),
-                                ),
-                              ),
+                            // Clipped to its own corners, so the band reads
+                            // as the card's extension rather than a strip
+                            // laid over it.
+                            clipBehavior: Clip.antiAlias,
+                            // The band is part of the card, so a tap on it
+                            // opens the step like a tap on the tile does; the
+                            // card is one button to a screen reader and shows
+                            // one cursor to a mouse.
+                            child: Semantics(
+                              button: true,
+                              child: InkWell(
                               onTap: () => _rungActions(context, ref, t, ladder, step),
+                              mouseCursor: WidgetStateMouseCursor.clickable,
+                              child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (settings.restFirst) band,
+                                ListTile(
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                    child: Text('${index + 1}', style: theme.textTheme.labelMedium),
+                                  ),
+                                  title: Text(step.text),
+                                  mouseCursor: MouseCursor.defer,
+                                  subtitle: Text(
+                                    'Step ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
+                                  ),
+                                  trailing: ReorderableDragStartListener(
+                                    index: index,
+                                    child: const SizedBox(
+                                      width: 56,
+                                      height: 56,
+                                      child: Icon(Icons.drag_handle),
+                                    ),
+                                  ),
+                                ),
+                                if (!settings.restFirst) band,
+                              ],
+                              ),
+                              ),
                             ),
                           ),
                         ),
@@ -284,34 +315,38 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ],
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => showBreakdownSheet(context, task: t, ladder: ladder),
-                      icon: const Icon(Icons.unfold_more),
-                      label: const Text('Break this down smaller'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: () async {
-                      final text = await _textDialog(context, title: 'New step');
-                      if (text != null && text.trim().isNotEmpty) {
-                        await repo.addStep(t.id, text.trim());
-                      }
-                    },
-                    child: const Text('Add'),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
+      ),
+      // The Scaffold's own bottom slot rather than the end of the body: the
+      // Scaffold then places a floating snack bar above these buttons instead
+      // of over them, and the SafeArea keeps them clear of the navigation bar
+      // drawn over the app.
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => showBreakdownSheet(context, task: t, ladder: ladder),
+                  icon: const Icon(Icons.unfold_more),
+                  label: const Text('Break this down smaller'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: () async {
+                  final text = await _textDialog(context, title: 'New step');
+                  if (text != null && text.trim().isNotEmpty) {
+                    await repo.addStep(t.id, text.trim());
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -493,82 +528,90 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(step.text, style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                ref.read(timerControllerProvider.notifier).start(
-                  config: round,
-                  target: ApproachTarget(
-                    taskId: task.id,
-                    taskTitle: task.title,
-                    rungId: step.id,
-                    rungPosition: step.position,
-                    rungText: step.text,
-                  ),
-                );
-                ref.read(rootTabProvider.notifier).set(0);
-                Navigator.of(context).popUntil((r) => r.isFirst);
-              },
-              child: Text(
-                settings.restFirst
-                    ? 'Rest ${formatWords(rest)}, then a ${formatWords(duration)} approach here'
-                    : 'Start a ${formatWords(duration)} approach here, then rest ${formatWords(rest)}',
-              ),
-            ),
-            if (settings.restFirst) ...[
-              const SizedBox(height: 6),
-              Text(
-                'The rest is time to get ready. The step can start sooner, whenever you feel like it.',
-                style: Theme.of(ctx).textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                showBreakdownSheet(context, task: task, ladder: ladder, rung: step);
-              },
-              child: const Text('Break this step down smaller'),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      final edited = await _editStepDialog(
-                        context,
-                        step,
-                        usual: settings.approach,
-                        rest: rest,
-                        restFirst: settings.restFirst,
-                      );
-                      if (edited != null) await repo.updateStep(edited);
-                    },
-                    child: const Text('Edit'),
-                  ),
+      // As tall as its content: capped at nine sixteenths of a short screen,
+      // the sheet would clip the Edit and Remove row once the navigation
+      // bar's inset is added below them.
+      isScrollControlled: true,
+      // useSafeArea clears the top only; the bottom is the sheet's to clear.
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(step.text, style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ref.read(timerControllerProvider.notifier).start(
+                    config: round,
+                    target: ApproachTarget(
+                      taskId: task.id,
+                      taskTitle: task.title,
+                      rungId: step.id,
+                      rungPosition: step.position,
+                      rungText: step.text,
+                    ),
+                  );
+                  ref.read(rootTabProvider.notifier).set(0);
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                },
+                child: Text(
+                  settings.restFirst
+                      ? 'Rest ${formatWords(rest)}, then a ${formatWords(duration)} approach here'
+                      : 'Start a ${formatWords(duration)} approach here, then rest ${formatWords(rest)}',
                 ),
-                Expanded(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _removeStep(task, step);
-                    },
-                    child: const Text('Remove'),
-                  ),
+              ),
+              if (settings.restFirst) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'The rest is time to get ready. The step can start sooner, whenever you feel like it.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
                 ),
               ],
-            ),
-          ],
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  showBreakdownSheet(context, task: task, ladder: ladder, rung: step);
+                },
+                child: const Text('Break this step down smaller'),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final edited = await _editStepDialog(
+                          context,
+                          step,
+                          usual: settings.approach,
+                          rest: rest,
+                          restFirst: settings.restFirst,
+                        );
+                        if (edited != null) await repo.updateStep(edited);
+                      },
+                      child: const Text('Edit'),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _removeStep(task, step);
+                      },
+                      child: const Text('Remove'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

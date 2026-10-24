@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme.dart';
@@ -50,6 +51,23 @@ class _DepressOBusterAppState extends ConsumerState<DepressOBusterApp> {
         AppThemeMode.light => ThemeMode.light,
       },
       home: const RootShell(),
+      // The status bar takes its style from the top of the screen and the
+      // navigation bar from the bottom. An AppBar covers only the top, so the
+      // whole app is annotated; Theme.of here is the theme in force.
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        // Where the window stops above the navigation bar (below Android 10,
+        // so the bar's inset is zero here) the bar is opaque, and the app's
+        // own background keeps it in step with the icons.
+        final opaqueBar = MediaQuery.viewPaddingOf(context).bottom == 0;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppTheme.systemOverlayStyle(
+            theme.brightness,
+            navigationBar: opaqueBar ? theme.scaffoldBackgroundColor : null,
+          ),
+          child: child!,
+        );
+      },
     );
   }
 }

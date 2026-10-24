@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_logic.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../services/providers.dart';
 import '../widgets/illustration.dart';
@@ -12,6 +15,28 @@ import '../widgets/logged_feedback.dart';
 import '../widgets/mood_chips.dart';
 
 /// The running timer. Same respect for rest as for the approach.
+
+/// What the finished controls can offer after a round about a step of a
+/// ladder: the step after it, if the task still has one. [known] is false
+/// only while the task or the ladder is loading for the first time (a round
+/// restored after the app was away), so the controls can wait rather than
+/// change under the finger a frame later; a load that failed is known, and
+/// the plain controls are never withheld.
+@visibleForTesting
+({bool known, ({Task task, LadderStep step})? next}) nextStepFor({
+  required ApproachTarget target,
+  required AsyncValue<List<Task>> tasks,
+  required AsyncValue<List<LadderStep>> ladder,
+}) {
+  bool pending(AsyncValue<Object?> a) => !a.hasValue && !a.hasError;
+  if (pending(tasks) || pending(ladder)) return (known: false, next: null);
+  final steps = ladder.value;
+  final matching = (tasks.value ?? const <Task>[]).where((t) => t.id == target.taskId);
+  if (steps == null || matching.isEmpty) return (known: true, next: null);
+  final next = LadderLogic.stepAfter(steps, id: target.rungId, position: target.rungPosition);
+  return (known: true, next: next == null ? null : (task: matching.first, step: next));
+}
+
 class TimerView extends ConsumerWidget {
   const TimerView({super.key});
 
@@ -236,10 +261,42 @@ class _Controls extends ConsumerWidget {
 
   final TimerState state;
 
+  /// The step after the one this round was about, when the round was a step
+  /// of a ladder that has one. Looked up live, so a ladder edited during the
+  /// round is honoured; a task that is gone or archived offers nothing.
+  ({bool known, ({Task task, LadderStep step})? next}) _nextStep(WidgetRef ref) {
+    final target = state.target;
+    final taskId = target?.taskId;
+    if (target == null || taskId == null || target.rungId == null) return (known: true, next: null);
+    return nextStepFor(target: target, tasks: ref.watch(tasksProvider), ladder: ref.watch(ladderProvider(taskId)));
+  }
+
+  /// The next step's own round, as the task screen would start it, as a new
+  /// run so the log keeps each step apart.
+  Future<void> _startStep(WidgetRef ref, ({Task task, LadderStep step}) next) {
+    final settings = ref.read(settingsProvider);
+    return ref.read(timerControllerProvider.notifier).start(
+      config: LadderRests.roundFor(
+        base: settings.timerConfig,
+        task: next.task,
+        step: next.step,
+        fallbackUnit: settings.rest,
+      ),
+      target: ApproachTarget(
+        taskId: next.task.id,
+        taskTitle: next.task.title,
+        rungId: next.step.id,
+        rungPosition: next.step.position,
+        rungText: next.step.text,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(timerControllerProvider.notifier);
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final snoozeBy = state.config.snoozeBy;
 
     Future<void> confirmStop() async {
@@ -408,6 +465,33 @@ class _Controls extends ConsumerWidget {
           ],
         );
       case TimerStatus.finished:
+        // The round is over. A step of a ladder puts the step after it one
+        // tap away; repeating this one and stopping stay as near as before.
+        final (:known, :next) = _nextStep(ref);
+        if (!known) return const SizedBox.shrink();
+        if (next != null) {
+          return Column(
+            children: [
+              FilledButton(
+                onPressed: () => _startStep(ref, next),
+                child: const Text('Next step'),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Up next: ${next.step.text}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => controller.start(config: state.config, target: state.target),
+                child: const Text('Another round'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(onPressed: controller.reset, child: const Text('Done for now')),
+            ],
+          );
+        }
         return Column(
           children: [
             FilledButton(

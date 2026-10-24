@@ -6,6 +6,7 @@ import 'package:depress_o_buster/domain/domain.dart';
 import 'package:depress_o_buster/services/providers.dart';
 import 'package:depress_o_buster/services/settings/settings_service.dart';
 import 'package:depress_o_buster/ui/tasks/task_detail_screen.dart';
+import 'package:depress_o_buster/ui/widgets/rest_band.dart';
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -110,6 +111,11 @@ void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
   testWidgets('swiping a step away removes it; Undo brings back the very same step', (tester) async {
+    // Tall enough that every tile, with its rest band, is on the screen.
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final h = await _harness();
     await h.pump(tester);
     final before = await h.ladder(tester);
@@ -138,10 +144,10 @@ void main() {
     expect(restored[1].id, removed.id);
     expect(restored[1].position, 1);
     expect(restored[1].suggestedDuration, const Duration(minutes: 2));
-    // The list numbers follow the restored order (the fifth tile sits below
-    // the 600 px test viewport and is not built).
+    // The list numbers follow the restored order.
     final numbers = tester.widgetList<Text>(find.descendant(of: find.byType(CircleAvatar), matching: find.byType(Text)));
-    expect(numbers.map((t) => t.data), ['1', '2', '3', '4']);
+    expect(numbers.map((t) => t.data), ['1', '2', '3', '4', '5']);
+    expect(find.byType(RestBand), findsNWidgets(5), reason: 'the restored step has its rest back too');
 
     await h.tearDown(tester);
   });
@@ -154,11 +160,31 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final h = await _harness();
     await h.pump(tester);
-    // Every step shows its rest (1, 1, 2, 3, 5 units of the 10 min Settings rest) and its time.
-    expect(find.text('Rest 10 min · Step 1 min'), findsOneWidget);
-    expect(find.text('Rest 10 min · Step 2 min'), findsOneWidget);
-    expect(find.text('Rest 20 min · Step 30 sec'), findsOneWidget);
-    expect(find.text('Rest 30 min · Step 5 min'), findsOneWidget);
+    // Every step shows its time, and its rest (1, 1, 2, 3, 5 units of the
+    // 10 min Settings rest) as a band on its card, taller the longer it is.
+    expect(find.text('Step 1 min'), findsOneWidget);
+    expect(find.text('Step 2 min'), findsOneWidget);
+    expect(find.text('Step 30 sec'), findsOneWidget);
+    expect(find.text('Step 5 min'), findsOneWidget);
+    expect(find.text('Rest 10 min'), findsNWidgets(2), reason: 'the first two steps rest one unit');
+    expect(find.text('Rest 20 min'), findsOneWidget);
+    expect(find.text('Rest 30 min'), findsOneWidget);
+    expect(find.textContaining(' · '), findsNothing, reason: 'the rest is no longer a clause of the subtitle');
+    final bands = find.byType(RestBand);
+    expect(bands, findsNWidgets(5));
+    expect(tester.getSize(bands.at(2)).height, greaterThan(tester.getSize(bands.first).height), reason: '20 min is a taller band than 10');
+    expect(tester.getSize(bands.at(3)).height, greaterThan(tester.getSize(bands.at(2)).height), reason: 'and 30 taller still');
+    // The rest comes first by default, so the band sits above its step, and
+    // a screen reader hears the card as one thing with the rest first.
+    expect(
+      tester.getBottomLeft(bands.first).dy,
+      lessThanOrEqualTo(tester.getTopLeft(find.widgetWithText(ListTile, 'Think about a shower')).dy),
+    );
+    final semantics = tester.ensureSemantics();
+    final label = tester.getSemantics(find.widgetWithText(Card, 'Think about a shower')).label;
+    expect(label, startsWith('Rest 10 min before this step\n'));
+    expect(label, endsWith('Think about a shower\nStep 1 min'));
+    semantics.dispose();
     // The sliders fold out of the way until asked for.
     expect(find.byType(Slider), findsNothing);
     expect(find.text('Rest unit 10 min, from Settings'), findsOneWidget);
@@ -186,10 +212,19 @@ void main() {
 
     expect(find.text('×1'), findsNothing, reason: 'the label follows the drag');
     expect(find.textContaining(RegExp(r'^×\d(\.\d\d?)?$')), findsOneWidget, reason: 'a readable factor');
-    expect(find.text('Rest 10 min · Step 1 min'), findsNothing, reason: '1 min shown longer while held');
-    expect(find.textContaining(RegExp(r'^Rest 10 min · Step [3-9] min( 30 sec)?$')), findsOneWidget, reason: '2 min shown longer, rounded to half a minute');
-    expect(find.text('Rest 20 min · Step 30 sec'), findsNothing, reason: 'the 30 sec step grows too');
-    expect(find.textContaining(RegExp(r'^Rest 20 min · Step ')), findsOneWidget, reason: 'its rest does not move: it belongs to the place');
+    // Each step's own card, since a scaled 30 sec can read "Step 1 min" too.
+    Finder subtitleOf(String step) =>
+        find.descendant(of: find.widgetWithText(Card, step), matching: find.textContaining(RegExp(r'^Step ')));
+    expect(subtitleOf('Think about a shower'), findsOneWidget);
+    expect(tester.widget<Text>(subtitleOf('Think about a shower')).data, isNot('Step 1 min'), reason: '1 min shown longer while held');
+    expect(
+      tester.widget<Text>(subtitleOf('Stand in the bathroom')).data,
+      matches(RegExp(r'^Step [3-9] min( 30 sec)?$')),
+      reason: '2 min shown longer, rounded to half a minute',
+    );
+    expect(tester.widget<Text>(subtitleOf('Turn the water on')).data, isNot('Step 30 sec'), reason: 'the 30 sec step grows too');
+    expect(find.text('Rest 10 min'), findsNWidgets(2), reason: 'the rests do not move: they belong to the place');
+    expect(find.text('Rest 20 min'), findsOneWidget);
     final held = await h.ladder(tester);
     expect(held[1].suggestedDuration, const Duration(minutes: 2), reason: 'nothing is saved while held');
 
@@ -221,8 +256,13 @@ void main() {
     final slider = tester.getRect(find.byType(Slider).last);
     final gesture = await tester.startGesture(slider.center);
     await tester.pump();
+    final restingHeight = tester.getSize(find.byType(RestBand).first).height;
+    expect(restingHeight, RestBand.heightFor(const Duration(minutes: 10)));
     await _slide(tester, gesture, -120);
-    expect(find.text('Rest 10 min · Step 1 min'), findsNothing, reason: 'rests shrink live while held');
+    expect(find.text('Rest 10 min'), findsNothing, reason: 'rests shrink live while held');
+    final held = tester.widget<RestBand>(find.byType(RestBand).first);
+    expect(held.rest, lessThan(const Duration(minutes: 10)));
+    expect(tester.getSize(find.byType(RestBand).first).height, lessThan(restingHeight), reason: 'the band shrinks with it');
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -230,9 +270,10 @@ void main() {
     expect(task!.restUnit, isNotNull);
     expect(task.restUnit!, lessThan(const Duration(minutes: 10)));
     expect(find.textContaining('Rest unit is now'), findsOneWidget);
-    // The tiles and the summary follow the saved unit.
+    // The bands and the summary follow the saved unit.
     final first = LadderRests.restFor(unit: task.restUnit!, position: 0);
-    expect(find.text('Rest ${formatWords(first)} · Step 1 min'), findsOneWidget);
+    expect(find.text('Rest ${formatWords(first)}'), findsNWidgets(2), reason: 'the first two steps rest one unit');
+    expect(tester.getSize(find.byType(RestBand).first).height, RestBand.heightFor(first));
     expect(find.text('Rest unit ${formatWords(task.restUnit!)}, this task\'s own'), findsOneWidget);
     expect(find.text('Use the rest from Settings again'), findsOneWidget);
 
@@ -321,6 +362,10 @@ void main() {
   });
 
   testWidgets('a task with its own rest unit can follow Settings again', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final h = await _harness();
     await h.pump(tester);
     expect(find.text('Use the rest from Settings again'), findsNothing);
@@ -329,14 +374,16 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Rest unit 5 min, this task\'s own'), findsOneWidget);
-    expect(find.text('Rest 5 min · Step 1 min'), findsOneWidget);
+    expect(find.text('Rest 5 min'), findsNWidgets(2));
+    expect(find.text('Step 1 min'), findsOneWidget);
     await tester.tap(find.text('Adjust step length and rest unit'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use the rest from Settings again'));
     await tester.pumpAndSettle();
 
     expect(find.text('Rest unit 10 min, from Settings'), findsOneWidget);
-    expect(find.text('Rest 10 min · Step 1 min'), findsOneWidget);
+    expect(find.text('Rest 10 min'), findsNWidgets(2));
+    expect(find.text('Rest 5 min'), findsNothing);
     expect(find.text('Rest unit follows Settings again'), findsOneWidget);
     expect((await tester.runAsync(() => h.repo.getTask(h.task.id)))!.restUnit, isNull);
     expect(find.text('Use the rest from Settings again'), findsNothing);
@@ -435,7 +482,7 @@ void main() {
     final gesture = await tester.startGesture(tester.getRect(find.byType(Slider).last).center);
     await tester.pump();
     await _slide(tester, gesture, 120);
-    expect(find.text('Rest 30 min · Step 1 min'), findsOneWidget, reason: 'the preview is capped like the save');
+    expect(find.text('Rest 30 min'), findsNWidgets(2), reason: 'the preview is capped like the save');
     expect(find.text('Rest unit 30 min, this task\'s own'), findsOneWidget, reason: 'the preview is the unit itself, so its source stays');
     await gesture.up();
     await tester.pumpAndSettle();
@@ -652,13 +699,38 @@ void main() {
     await h.tearDown(tester);
   });
 
+  testWidgets('with the classic order the band hangs below its step and says so', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final h = await _harness(settings: const AppSettings(restFirst: false));
+    await h.pump(tester);
+    final tile = find.widgetWithText(ListTile, 'Think about a shower');
+    final band = find.byType(RestBand).first;
+    expect(tester.getTopLeft(band).dy, greaterThanOrEqualTo(tester.getBottomLeft(tile).dy));
+    expect(find.text('Rest 10 min'), findsNWidgets(2));
+    // The card is read as one thing, the rest after the step as it comes.
+    final label = tester.getSemantics(find.widgetWithText(Card, 'Think about a shower')).label;
+    expect(label, contains('Rest 10 min after this step'));
+    expect(label.indexOf('Think about a shower'), lessThan(label.indexOf('Rest 10 min after this step')));
+    expect(label, isNot(contains('before this step')));
+    expect(tester.getSemantics(find.widgetWithText(Card, 'Turn the water on')).label, contains('Rest 20 min after this step'));
+    // The band is part of the card: a swipe on it removes the step like a swipe on the tile.
+    await tester.drag(band, const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Think about a shower'), findsNothing);
+    expect(find.text('Step removed'), findsOneWidget);
+    semantics.dispose();
+    await h.tearDown(tester);
+  });
+
   testWidgets('a Settings rest outside the range is shown as kept to it', (tester) async {
     final h = await _harness(settings: const AppSettings(rest: Duration(minutes: 45)));
     await h.pump(tester);
     expect(find.text('Rest unit 30 min, the most a unit can be (Settings: 45 min)'), findsOneWidget);
-    expect(find.text('Rest 30 min · Step 1 min'), findsOneWidget);
-    expect(find.text('Rest 30 min · Step 2 min'), findsOneWidget);
-    expect(find.text('Rest 1 hr · Step 30 sec'), findsOneWidget);
+    expect(find.text('Rest 30 min'), findsNWidgets(2));
+    expect(find.text('Step 1 min'), findsOneWidget);
+    expect(find.text('Step 2 min'), findsOneWidget);
+    expect(find.text('Rest 1 hr'), findsOneWidget);
+    expect(find.text('Step 30 sec'), findsOneWidget);
     await h.tearDown(tester);
   });
 
@@ -685,7 +757,12 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Rest 2 hr 10 min · Step 2 min (the usual length)'), findsOneWidget, reason: 'step 7, ×13');
+    expect(find.text('Rest 2 hr 10 min'), findsOneWidget, reason: 'step 7, ×13');
+    expect(find.text('Step 2 min (the usual length)'), findsNWidgets(3), reason: 'the three untimed steps');
+    final bands = find.byType(RestBand);
+    expect(bands, findsNWidgets(7));
+    expect(tester.getSize(bands.last).height, RestBand.heightFor(const Duration(hours: 2, minutes: 10)));
+    expect(tester.getSize(bands.last).height, greaterThan(2 * tester.getSize(bands.first).height), reason: 'the climb shows');
     await tester.tap(find.text('Get dressed'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit'));
@@ -736,12 +813,34 @@ void main() {
     await h.tearDown(tester);
   });
 
+  testWidgets('a tap on the rest band opens the step like a tap on the tile', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final h = await _harness();
+    await h.pump(tester);
+    // The whole card is one button to a screen reader.
+    final card = find.ancestor(of: find.text('Think about a shower'), matching: find.byType(Card)).first;
+    expect(tester.getSemantics(card), isSemantics(isButton: true, hasTapAction: true));
+    semantics.dispose();
+    await tester.tap(find.byType(RestBand).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Break this step down smaller'), findsOneWidget, reason: 'the step sheet');
+    expect(find.widgetWithText(FilledButton, 'Rest 10 min, then a 1 min approach here'), findsOneWidget);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit step'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await h.tearDown(tester);
+  });
+
   testWidgets('the Remove button in the step menu also offers Undo', (tester) async {
     final h = await _harness();
     await h.pump(tester);
     final before = await h.ladder(tester);
 
-    await tester.ensureVisible(find.text('Step in'));
+    // The fourth tile, with the rest bands above it, starts below the 600 px
+    // test viewport, and a lazy list does not build what is off screen.
+    await tester.scrollUntilVisible(find.text('Step in'), 100, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Step in'));
     await tester.pumpAndSettle();
