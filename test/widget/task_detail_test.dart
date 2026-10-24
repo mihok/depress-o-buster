@@ -814,8 +814,13 @@ void main() {
   });
 
   testWidgets('a tap on the rest band opens the step like a tap on the tile', (tester) async {
+    final semantics = tester.ensureSemantics();
     final h = await _harness();
     await h.pump(tester);
+    // The whole card is one button to a screen reader.
+    final card = find.ancestor(of: find.text('Think about a shower'), matching: find.byType(Card)).first;
+    expect(tester.getSemantics(card), isSemantics(isButton: true, hasTapAction: true));
+    semantics.dispose();
     await tester.tap(find.byType(RestBand).first);
     await tester.pumpAndSettle();
     expect(find.text('Break this step down smaller'), findsOneWidget, reason: 'the step sheet');

@@ -15,6 +15,28 @@ import '../widgets/logged_feedback.dart';
 import '../widgets/mood_chips.dart';
 
 /// The running timer. Same respect for rest as for the approach.
+
+/// What the finished controls can offer after a round about a step of a
+/// ladder: the step after it, if the task still has one. [known] is false
+/// only while the task or the ladder is loading for the first time (a round
+/// restored after the app was away), so the controls can wait rather than
+/// change under the finger a frame later; a load that failed is known, and
+/// the plain controls are never withheld.
+@visibleForTesting
+({bool known, ({Task task, LadderStep step})? next}) nextStepFor({
+  required ApproachTarget target,
+  required AsyncValue<List<Task>> tasks,
+  required AsyncValue<List<LadderStep>> ladder,
+}) {
+  bool pending(AsyncValue<Object?> a) => !a.hasValue && !a.hasError;
+  if (pending(tasks) || pending(ladder)) return (known: false, next: null);
+  final steps = ladder.value;
+  final matching = (tasks.value ?? const <Task>[]).where((t) => t.id == target.taskId);
+  if (steps == null || matching.isEmpty) return (known: true, next: null);
+  final next = LadderLogic.stepAfter(steps, id: target.rungId, position: target.rungPosition);
+  return (known: true, next: next == null ? null : (task: matching.first, step: next));
+}
+
 class TimerView extends ConsumerWidget {
   const TimerView({super.key});
 
@@ -242,20 +264,11 @@ class _Controls extends ConsumerWidget {
   /// The step after the one this round was about, when the round was a step
   /// of a ladder that has one. Looked up live, so a ladder edited during the
   /// round is honoured; a task that is gone or archived offers nothing.
-  /// [known] is false while the task or ladder has not loaded yet (a round
-  /// restored after the app was away), so the controls can wait rather than
-  /// change under the finger a frame later.
   ({bool known, ({Task task, LadderStep step})? next}) _nextStep(WidgetRef ref) {
     final target = state.target;
     final taskId = target?.taskId;
     if (target == null || taskId == null || target.rungId == null) return (known: true, next: null);
-    final tasks = ref.watch(tasksProvider).value;
-    final ladder = ref.watch(ladderProvider(taskId)).value;
-    if (tasks == null || ladder == null) return (known: false, next: null);
-    final matching = tasks.where((t) => t.id == taskId);
-    if (matching.isEmpty) return (known: true, next: null);
-    final next = LadderLogic.stepAfter(ladder, id: target.rungId, position: target.rungPosition);
-    return (known: true, next: next == null ? null : (task: matching.first, step: next));
+    return nextStepFor(target: target, tasks: ref.watch(tasksProvider), ladder: ref.watch(ladderProvider(taskId)));
   }
 
   /// The next step's own round, as the task screen would start it, as a new

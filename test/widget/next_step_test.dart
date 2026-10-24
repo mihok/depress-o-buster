@@ -9,6 +9,7 @@ import 'package:depress_o_buster/services/alarms/alarm_service.dart';
 import 'package:depress_o_buster/services/audio/sound_service.dart';
 import 'package:depress_o_buster/services/providers.dart';
 import 'package:depress_o_buster/services/settings/settings_service.dart';
+import 'package:depress_o_buster/ui/timer/timer_view.dart';
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -165,6 +166,25 @@ void main() {
       expect(LadderLogic.stepAfter(ladder, id: 'c', position: 2), isNull);
       expect(LadderLogic.stepAfter(ladder, id: 'gone'), isNull);
       expect(LadderLogic.stepAfter(const [], id: 'a', position: 0), isNull);
+    });
+
+    test('a load that failed still offers the plain controls; only a first load waits', () {
+      const target = ApproachTarget(taskId: 't', taskTitle: 'Shower', rungId: 'a', rungPosition: 0, rungText: 'a');
+      final task = Task(id: 't', title: 'Shower', createdAt: DateTime(2026));
+      expect(nextStepFor(target: target, tasks: const AsyncValue.loading(), ladder: const AsyncValue.loading()).known, isFalse);
+      expect(nextStepFor(target: target, tasks: AsyncValue.data([task]), ladder: const AsyncValue.loading()).known, isFalse);
+      final failed = nextStepFor(
+        target: target,
+        tasks: AsyncValue.data([task]),
+        ladder: AsyncValue.error(StateError('db'), StackTrace.empty),
+      );
+      expect(failed.known, isTrue);
+      expect(failed.next, isNull);
+      final gone = nextStepFor(target: target, tasks: const AsyncValue.data([]), ladder: AsyncValue.data(ladder));
+      expect(gone.known, isTrue);
+      expect(gone.next, isNull);
+      final found = nextStepFor(target: target, tasks: AsyncValue.data([task]), ladder: AsyncValue.data(ladder));
+      expect(found.next?.step.id, 'b');
     });
 
     test('falls back to the position when the id is gone', () {

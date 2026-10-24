@@ -268,9 +268,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                             // laid over it.
                             clipBehavior: Clip.antiAlias,
                             // The band is part of the card, so a tap on it
-                            // opens the step like a tap on the tile does.
-                            child: InkWell(
+                            // opens the step like a tap on the tile does; the
+                            // card is one button to a screen reader and shows
+                            // one cursor to a mouse.
+                            child: Semantics(
+                              button: true,
+                              child: InkWell(
                               onTap: () => _rungActions(context, ref, t, ladder, step),
+                              mouseCursor: WidgetStateMouseCursor.clickable,
                               child: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -283,6 +288,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                     child: Text('${index + 1}', style: theme.textTheme.labelMedium),
                                   ),
                                   title: Text(step.text),
+                                  mouseCursor: MouseCursor.defer,
                                   subtitle: Text(
                                     'Step ${step.suggestedDuration == null ? '${formatWords(settings.approach)} (the usual length)' : formatWords(step.suggestedDuration!)}',
                                   ),
@@ -297,6 +303,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                 ),
                                 if (!settings.restFirst) band,
                               ],
+                              ),
                               ),
                             ),
                           ),
