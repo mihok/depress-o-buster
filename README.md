@@ -14,8 +14,12 @@ is an **approach**: being near the thing, not doing the thing. Over days the rat
 * XP for every completed interval. The curve favours small and consistent: a 1-minute approach is worth real
   points, a missed day is silent, and coming back after a gap is welcomed, never scolded.
 * Each step has its own rest, growing with the step's place in the ladder (1, 1, 2, 3, 5, 8, 13 times the
-  task's rest unit) rather than with the step's length. Rest is counted down with the same respect as the
-  approach, and a rest that comes first can be cut short whenever the person is ready.
+  task's rest unit) rather than with the step's length. On the task screen the rest is drawn as a band that
+  extends each step's card, sized to the rest and dotted once per rest unit, so the climb can be seen. Rest is
+  counted down with the same respect as the approach, and a rest that comes first can be cut short whenever
+  the person is ready.
+* When a step's round is complete, the next step of the ladder is one tap away, and so is another round of the
+  same step.
 * Local-first: everything lives in an on-device SQLite database.
 
 This is a timer with a very low floor. It is not a medical device and makes no health claims.
