@@ -267,3 +267,17 @@ is too narrow for one, never past its edge. A pebble is the app's one small step
 step's units the rest is, so the Fibonacci climb can be seen without reading it. The painter is pure and repaints
 only when the count or the colour changes, and the band is built from the same previewed unit the tile already
 received, so it grows and shrinks live while the rest slider is held and settles with the save.
+
+## 32. After a step, the next one is one tap away
+
+When a round that was about a step of a ladder is over, the timer screen offers the step after it first: a
+"Next step" button with the step's text under it, then "Another round" (the same step again) and "Done for now".
+The next step starts as its own round, the one the task screen would start (its own length, the rest its place
+in the ladder earns, no long rest), and as a new run, so the session log keeps each step apart. The ladder is
+read live when the round ends, so a step added or moved during the round is honoured; when the step's id is gone,
+its old position stands in for it. On the last step, for a round that was not a ladder step, and while a rest is
+still to come (approach first, rest started by hand), the controls stay as they were.
+
+Climbing is offered, never pushed: the button says what the next step is and nothing about pace, and repeating the
+current step keeps its place next to it rather than moving to a menu. A person who has done "stand in the
+doorway" three times today has done three steps.

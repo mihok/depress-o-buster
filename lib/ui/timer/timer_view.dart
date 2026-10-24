@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../domain/entities/entities.dart';
+import '../../domain/ladder/ladder_logic.dart';
+import '../../domain/ladder/ladder_rests.dart';
 import '../../domain/timer/timer_engine.dart';
 import '../../services/providers.dart';
 import '../widgets/illustration.dart';
@@ -236,10 +239,48 @@ class _Controls extends ConsumerWidget {
 
   final TimerState state;
 
+  /// The step after the one this round was about, when the round was a step
+  /// of a ladder that has one. Looked up live, so a ladder edited during the
+  /// round is honoured; a task that is gone or archived offers nothing.
+  ({Task task, LadderStep step})? _nextStep(WidgetRef ref) {
+    final target = state.target;
+    final taskId = target?.taskId;
+    if (target == null || taskId == null || target.rungId == null) return null;
+    final tasks = ref.watch(tasksProvider).value ?? const <Task>[];
+    final matching = tasks.where((t) => t.id == taskId);
+    if (matching.isEmpty) return null;
+    final ladder = ref.watch(ladderProvider(taskId)).value;
+    if (ladder == null) return null;
+    final next = LadderLogic.stepAfter(ladder, id: target.rungId, position: target.rungPosition);
+    return next == null ? null : (task: matching.first, step: next);
+  }
+
+  /// The next step's own round, as the task screen would start it, as a new
+  /// run so the log keeps each step apart.
+  Future<void> _startStep(WidgetRef ref, ({Task task, LadderStep step}) next) {
+    final settings = ref.read(settingsProvider);
+    return ref.read(timerControllerProvider.notifier).start(
+      config: LadderRests.roundFor(
+        base: settings.timerConfig,
+        task: next.task,
+        step: next.step,
+        fallbackUnit: settings.rest,
+      ),
+      target: ApproachTarget(
+        taskId: next.task.id,
+        taskTitle: next.task.title,
+        rungId: next.step.id,
+        rungPosition: next.step.position,
+        rungText: next.step.text,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(timerControllerProvider.notifier);
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final snoozeBy = state.config.snoozeBy;
 
     Future<void> confirmStop() async {
@@ -408,6 +449,32 @@ class _Controls extends ConsumerWidget {
           ],
         );
       case TimerStatus.finished:
+        // The round is over. A step of a ladder puts the step after it one
+        // tap away; repeating this one and stopping stay as near as before.
+        final next = _nextStep(ref);
+        if (next != null) {
+          return Column(
+            children: [
+              FilledButton(
+                onPressed: () => _startStep(ref, next),
+                child: const Text('Next step'),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Up next: ${next.step.text}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => controller.start(config: state.config, target: state.target),
+                child: const Text('Another round'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(onPressed: controller.reset, child: const Text('Done for now')),
+            ],
+          );
+        }
         return Column(
           children: [
             FilledButton(
